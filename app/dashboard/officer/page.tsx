@@ -598,7 +598,7 @@ export default function OfficerDashboard() {
                             <div className="flex items-end justify-between gap-4">
                                 <div>
                                     <p className="text-6xl lg:text-7xl font-black text-gray-900 tracking-tighter">{stats.totalPending}</p>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Total Pending & Revisi</p>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Menunggu Review / Revisi</p>
                                 </div>
                                 <Link href="/dashboard/officer/instruksi?filter=PENDING" className="flex items-center gap-3 px-6 py-3.5 bg-red-600 text-white rounded-[1.25rem] shadow-xl shadow-red-200 cursor-pointer hover:scale-105 hover:bg-red-700 active:scale-95 transition-all mb-2">
                                     <span className="text-xs font-black uppercase tracking-widest">Review Sekarang</span>
