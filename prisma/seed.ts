@@ -1,4 +1,4 @@
-import { PrismaClient, EventColor } from "@prisma/client";
+import { PrismaClient, EventColor, ContentType, SubmissionStatus, NotificationType, Priority, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient({});
@@ -112,7 +112,7 @@ async function main() {
                 username: user.username,
                 email: user.email,
                 phone: user.phone,
-                role: dummyUsers.indexOf(user) === 0 ? "OFFICER" : "STAFF",
+                role: (dummyUsers.indexOf(user) === 0 ? "OFFICER" : "STAFF") as Role,
                 isVerified: true,
                 termsAccepted: true,
             },
@@ -124,7 +124,7 @@ async function main() {
                 email: user.email,
                 phone: user.phone,
                 password: hashedPassword,
-                role: dummyUsers.indexOf(user) === 0 ? "OFFICER" : "STAFF",
+                role: (dummyUsers.indexOf(user) === 0 ? "OFFICER" : "STAFF") as Role,
                 isVerified: true,
                 termsAccepted: true,
             },
@@ -284,7 +284,7 @@ async function main() {
                 username: user.username,
                 email: user.email,
                 phone: user.phone,
-                role: "STAFF",
+                role: "STAFF" as Role,
                 isVerified: false,
                 termsAccepted: true,
             },
@@ -296,7 +296,7 @@ async function main() {
                 email: user.email,
                 phone: user.phone,
                 password: hashedPassword,
-                role: "STAFF",
+                role: "STAFF" as Role,
                 isVerified: false,
                 termsAccepted: true,
             },
@@ -325,7 +325,7 @@ async function main() {
             title: "Kampanye Promo Awal Tahun 2026",
             description: "Buat carousel Instagram untuk promo paket data awal tahun.",
             deadline: new Date("2026-02-01"),
-            priority: "HIGH",
+            priority: "HIGH" as Priority,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -343,7 +343,7 @@ async function main() {
             title: "Video Reels Behind The Scene",
             description: "Dokumentasikan suasana kantor untuk konten TikTok/Reels.",
             deadline: new Date("2026-01-25"),
-            priority: "MEDIUM",
+            priority: "MEDIUM" as Priority,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -360,7 +360,7 @@ async function main() {
             title: "Infografis Kinerja Q4 2025",
             description: "Visualisasikan pencapaian tim selama kuartal terakhir.",
             deadline: new Date("2026-01-30"),
-            priority: "LOW",
+            priority: "LOW" as Priority,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -373,19 +373,26 @@ async function main() {
     // Seed Submissions (Mixing Instructions and Initiatives)
     console.log("📤 Menambahkan data submission massal...");
 
-    const contentTypes = [
-        "INSTAGRAM_REELS",
-        "INSTAGRAM_CAROUSEL",
-        "INSTAGRAM_STORY",
-        "YOUTUBE_VIDEO",
-        "TIKTOK_POST",
-        "INSTAGRAM_POST",
-        "POSTER",
-        "DOKUMEN_INTERNAL"
+    const contentTypes: ContentType[] = [
+        "INSTAGRAM_REELS" as ContentType,
+        "INSTAGRAM_CAROUSEL" as ContentType,
+        "INSTAGRAM_STORY" as ContentType,
+        "YOUTUBE_VIDEO" as ContentType,
+        "TIKTOK_POST" as ContentType,
+        "INSTAGRAM_POST" as ContentType,
+        "POSTER" as ContentType,
+        "DOKUMEN_INTERNAL" as ContentType
     ];
 
-    const statuses = ["PENDING", "REVISION", "APPROVED"];
-    const submissions = [];
+    const statuses: SubmissionStatus[] = ["PENDING" as SubmissionStatus, "REVISION" as SubmissionStatus, "APPROVED" as SubmissionStatus];
+    const submissions: {
+        id: string;
+        title: string;
+        contentType: ContentType;
+        status: SubmissionStatus;
+        authorId: string;
+        createdAt: Date;
+    }[] = [];
 
     // 1. Tambahkan 80 data APPROVED agar data di Pie Chart terlihat padat
     for (let i = 1; i <= 80; i++) {
@@ -399,7 +406,7 @@ async function main() {
             id: `SBM-${i.toString().padStart(2, '0')}`,
             title: `Konten Produk ${i}`,
             contentType: contentTypes[Math.floor(Math.random() * contentTypes.length)],
-            status: "APPROVED",
+            status: "APPROVED" as SubmissionStatus,
             authorId: staffMembers[i % staffMembers.length],
             createdAt: randomDate
         });
@@ -420,7 +427,7 @@ async function main() {
             randomDate.setMinutes(Math.floor(Math.random() * 60));
         }
 
-        const mixedStatus = i % 2 === 0 ? "PENDING" : "REVISION";
+        const mixedStatus: SubmissionStatus = i % 2 === 0 ? "PENDING" : "REVISION";
         const subIdNum = 80 + i;
 
         submissions.push({
@@ -438,8 +445,8 @@ async function main() {
             data: {
                 id: sub.id,
                 title: sub.title,
-                contentType: sub.contentType as any,
-                status: sub.status as any,
+                contentType: sub.contentType,
+                status: sub.status,
                 authorId: sub.authorId,
                 createdAt: sub.createdAt
             }
@@ -481,7 +488,7 @@ async function main() {
                     ? `Proyek kerja sama tim untuk tugas nomor ${i}. Membutuhkan koordinasi antar anggota.`
                     : `Pengerjaan mendesak untuk tugas nomor ${i} yang harus segera diselesaikan.`,
                 deadline: deadlineDate,
-                priority: i <= 10 ? "HIGH" : (i % 2 === 0 ? "MEDIUM" : "LOW"),
+                priority: (i <= 10 ? "HIGH" : (i % 2 === 0 ? "MEDIUM" : "LOW")) as Priority,
                 issuerId: officerAhmad,
                 assignees: {
                     create: assigneesToCreate
@@ -496,8 +503,8 @@ async function main() {
                 data: {
                     id: `SBM-${urgentSubIdNum.toString().padStart(2, '0')}`,
                     title: `Draft Konten Tugas ${i}`,
-                    contentType: contentTypes[i % contentTypes.length],
-                    status: i % 3 === 0 ? "REVISION" : "PENDING",
+                    contentType: contentTypes[i % contentTypes.length] as ContentType,
+                    status: (i % 3 === 0 ? "REVISION" : "PENDING") as SubmissionStatus,
                     authorId: staffMembers[i % staffMembers.length],
                     instructionId: instruction.id,
                     createdAt: new Date()
@@ -572,7 +579,7 @@ async function main() {
             data: {
                 id: `NTF-${ntfCounter.toString().padStart(2, '0')}`,
                 userId: notif.userId,
-                type: notif.type as any,
+                type: notif.type as NotificationType,
                 title: notif.title,
                 message: notif.message,
                 link: notif.link,
