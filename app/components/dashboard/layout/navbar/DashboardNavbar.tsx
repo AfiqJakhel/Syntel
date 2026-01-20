@@ -107,7 +107,7 @@ export function DashboardNavbar({ onLogout, role = "STAFF" }: DashboardNavbarPro
         <header className="sticky top-0 z-30 flex h-16 md:h-24 items-center justify-between bg-white/80 px-4 md:px-12 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
             {/* Left side */}
             <div className="hidden md:flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-1">Portal Sintel</span>
+                <span className="text-sm font-black uppercase tracking-widest text-red-600 mb-1">Portal Sintel</span>
                 <span className="text-sm font-bold text-gray-400">Dashboard / {role}</span>
             </div>
 

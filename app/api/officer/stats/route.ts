@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { startOfMonth, endOfMonth, startOfYear, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 
 const prisma = new PrismaClient() as any;
 
@@ -12,17 +13,20 @@ export async function GET(req: Request) {
         const now = new Date();
 
         if (period === 'Weekly') {
-            const start = new Date();
-            start.setDate(now.getDate() - 7);
-            dateFilter = { gte: start };
+            dateFilter = {
+                gte: startOfWeek(now),
+                lte: endOfWeek(now)
+            };
         } else if (period === 'Monthly') {
-            const start = new Date();
-            start.setMonth(now.getMonth() - 1);
-            dateFilter = { gte: start };
+            dateFilter = {
+                gte: startOfMonth(now),
+                lte: endOfMonth(now)
+            };
         } else if (period === 'Yearly') {
-            const start = new Date();
-            start.setFullYear(now.getFullYear() - 1);
-            dateFilter = { gte: start };
+            dateFilter = {
+                gte: startOfYear(now),
+                lte: endOfYear(now)
+            };
         }
 
         const stats = await prisma.submission.groupBy({
@@ -116,6 +120,12 @@ export async function GET(req: Request) {
             where: {
                 deadline: {
                     gte: now
+                },
+                // Exclude tasks that are already approved/finished
+                NOT: {
+                    submission: {
+                        status: 'APPROVED'
+                    }
                 }
             },
             take: 6,
@@ -139,15 +149,23 @@ export async function GET(req: Request) {
             }
         });
 
-        const deadlines = upcomingInstructions.map((inst: any) => ({
-            id: inst.id,
-            title: inst.title,
-            date: inst.deadline.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-            assignee: inst.assignees.length > 1
-                ? `${inst.assignees[0].staff.firstName} & ${inst.assignees.length - 1} lainnya`
-                : inst.assignees[0]?.staff?.firstName || "Belum ditugaskan",
-            status: inst.submission ? (inst.submission.status === "REVISION" ? "Revisi" : "Selesai") : "Pending"
-        }));
+        const deadlines = upcomingInstructions.map((inst: any) => {
+            let statusLabel = "Pending";
+            if (inst.submission) {
+                if (inst.submission.status === "PENDING") statusLabel = "Menunggu Review";
+                else if (inst.submission.status === "REVISION") statusLabel = "Revisi";
+            }
+
+            return {
+                id: inst.id,
+                title: inst.title,
+                date: inst.deadline.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+                assignee: inst.assignees.length > 1
+                    ? `${inst.assignees[0].staff.firstName} & ${inst.assignees.length - 1} lainnya`
+                    : inst.assignees[0]?.staff?.firstName || "Belum ditugaskan",
+                status: statusLabel
+            };
+        });
 
         return NextResponse.json({
             contentStats,

@@ -50,3 +50,25 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+export async function DELETE(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const nip = searchParams.get("nip");
+
+    try {
+        if (id) {
+            await (prisma as any).$executeRawUnsafe(`
+                DELETE FROM notifications WHERE id = ?
+            `, id);
+        } else if (nip) {
+            await (prisma as any).$executeRawUnsafe(`
+                DELETE FROM notifications WHERE userId = ?
+            `, nip);
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("[DEBUG_RAW] Raw delete error:", error.message);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}

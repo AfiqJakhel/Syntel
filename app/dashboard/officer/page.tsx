@@ -21,7 +21,7 @@ interface Deadline {
     title: string;
     date: string;
     assignee: string;
-    status: "Pending" | "Revisi";
+    status: "Pending" | "Revisi" | "Menunggu Review";
 }
 
 interface Activity {
@@ -177,7 +177,7 @@ export default function OfficerDashboard() {
                     {/* Jenis Konten - Pie Chart */}
                     <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-black text-gray-900">Jenis Konten</h2>
+                            <h2 className="text-xl font-black text-gray-900">Konten Disetujui</h2>
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline">Periode</span>
@@ -540,9 +540,11 @@ export default function OfficerDashboard() {
                                             <Clock className="h-3 w-3" />
                                             {deadline.date}
                                         </p>
-                                        <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black mt-2 uppercase tracking-widest shadow-sm ${deadline.status === "Pending"
-                                            ? "bg-orange-50 text-orange-600 border border-orange-100"
-                                            : "bg-red-50 text-red-600 border border-red-100"
+                                        <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black mt-2 uppercase tracking-widest shadow-sm border ${deadline.status === "Pending"
+                                            ? "bg-gray-50 text-gray-500 border-gray-100"
+                                            : deadline.status === "Menunggu Review"
+                                                ? "bg-orange-50 text-orange-600 border-orange-100"
+                                                : "bg-red-50 text-red-600 border-red-100"
                                             }`}>
                                             {deadline.status}
                                         </span>
@@ -574,17 +576,13 @@ export default function OfficerDashboard() {
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Total Konten</h3>
+                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Aset Digital</h3>
                                 </div>
                             </div>
                             <div className="flex items-end justify-between gap-4">
                                 <div>
                                     <p className="text-6xl lg:text-7xl font-black text-gray-900 tracking-tighter">{stats.totalApproved}</p>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Total Terpublikasi</p>
-                                </div>
-                                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-2xl border border-emerald-100 mb-2">
-                                    <TrendingUp className="h-4 w-4 text-emerald-600" />
-                                    <span className="text-xs font-black text-emerald-600">{stats.growthRate}</span>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Total Konten Disetujui</p>
                                 </div>
                             </div>
                         </div>
@@ -594,13 +592,13 @@ export default function OfficerDashboard() {
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Total Pengajuan</h3>
+                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Pengajuan Konten</h3>
                                 </div>
                             </div>
                             <div className="flex items-end justify-between gap-4">
                                 <div>
                                     <p className="text-6xl lg:text-7xl font-black text-gray-900 tracking-tighter">{stats.totalPending}</p>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Menunggu Review</p>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">Total Pending & Revisi</p>
                                 </div>
                                 <Link href="/dashboard/officer/instruksi?filter=PENDING" className="flex items-center gap-3 px-6 py-3.5 bg-red-600 text-white rounded-[1.25rem] shadow-xl shadow-red-200 cursor-pointer hover:scale-105 hover:bg-red-700 active:scale-95 transition-all mb-2">
                                     <span className="text-xs font-black uppercase tracking-widest">Review Sekarang</span>
@@ -623,9 +621,12 @@ export default function OfficerDashboard() {
                                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Real-time update dari tim Creative</p>
                             </div>
                         </div>
-                        <button className="px-6 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">
+                        <Link
+                            href="/dashboard/officer/laporan"
+                            className="px-6 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                        >
                             Lihat Semua
-                        </button>
+                        </Link>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-gray-100 border-t border-gray-100 -mx-8 sm:-mx-10 mt-10">

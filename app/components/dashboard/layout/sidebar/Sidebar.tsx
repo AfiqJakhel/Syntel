@@ -16,7 +16,8 @@ import {
     LogOut,
     UserCheck,
     FileText,
-    Calendar
+    Calendar,
+    BarChart3
 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 
@@ -217,6 +218,7 @@ const officerMenuItems = [
     { label: "Manajemen Event", icon: <Calendar className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/kalender" },
     { label: "Manajemen Instruksi", icon: <FileText className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/instruksi" },
     { label: "Manajemen User", icon: <Users className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/users" },
+    { label: "Laporan Konten", icon: <BarChart3 className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/laporan" },
 ];
 
 
@@ -253,7 +255,7 @@ export function Sidebar({ role = "STAFF" }: { role?: "STAFF" | "OFFICER" }) {
                     {/* Logo Section */}
                     {open ? (
                         <div className="mb-10 px-2 flex items-center justify-between">
-                            <Link href="/" className="flex items-center gap-2">
+                            <Link href="/dashboard/officer" className="flex items-center gap-2">
                                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-xl">
                                     S
                                 </div>

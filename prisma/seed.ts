@@ -384,76 +384,102 @@ async function main() {
         "DOKUMEN_INTERNAL" as ContentType
     ];
 
-    const statuses: SubmissionStatus[] = ["PENDING" as SubmissionStatus, "REVISION" as SubmissionStatus, "APPROVED" as SubmissionStatus];
-    const submissions: {
-        id: string;
-        title: string;
-        contentType: ContentType;
-        status: SubmissionStatus;
-        authorId: string;
-        createdAt: Date;
-    }[] = [];
+    const submissions: any[] = [];
+    let globalSubCounter = 1;
 
-    // 1. Tambahkan 80 data APPROVED agar data di Pie Chart terlihat padat
-    for (let i = 1; i <= 80; i++) {
-        const randomDate = new Date();
-        // Variasi hari (0-60 hari lalu), jam, dan menit
-        randomDate.setDate(randomDate.getDate() - Math.floor(Math.random() * 60));
-        randomDate.setHours(Math.floor(Math.random() * 24));
-        randomDate.setMinutes(Math.floor(Math.random() * 60));
+    const now = new Date();
+    // 1. Data Historis 12 Bulan Terakhir (Agar grafik Tahunan/Bulanan terlihat fluktuatif)
+    console.log("📊 Menghasilkan tren data fluktuatif 12 bulan terakhir...");
+    for (let m = 0; m <= 12; m++) {
+        const monthDate = new Date(now);
+        monthDate.setMonth(now.getMonth() - m);
 
-        submissions.push({
-            id: `SBM-${i.toString().padStart(2, '0')}`,
-            title: `Konten Produk ${i}`,
-            contentType: contentTypes[Math.floor(Math.random() * contentTypes.length)],
-            status: "APPROVED" as SubmissionStatus,
-            authorId: staffMembers[i % staffMembers.length],
-            createdAt: randomDate
-        });
-    }
+        // Buat jumlah data yang berbeda-beda setiap bulan agar grafik tidak flat
+        const baseVolume = m % 3 === 0 ? 60 : (m % 2 === 0 ? 40 : 25);
+        const randomVolume = Math.floor(Math.random() * 20) + baseVolume;
 
-    // 2. Tambahkan 50 data Campuran (PENDING & REVISION)
-    // Berikan beberapa yang sangat baru agar terlihat "Satu Menit Yang Lalu" dsb.
-    for (let i = 1; i <= 50; i++) {
-        const randomDate = new Date();
+        for (let j = 0; j < randomVolume; j++) {
+            const entryDate = new Date(monthDate);
+            // Jika bulan sekarang (m=0), pastikan tanggal tidak lewat dari hari ini
+            const maxDay = m === 0 ? now.getDate() : 28;
+            entryDate.setDate(Math.floor(Math.random() * maxDay) + 1);
+            entryDate.setHours(Math.floor(Math.random() * 23));
+            entryDate.setMinutes(Math.floor(Math.random() * 59));
 
-        if (i <= 5) {
-            // 5 data terbaru dalam hitungan menit/jam terakhir
-            randomDate.setMinutes(randomDate.getMinutes() - (i * 10)); // 10, 20, 30... menit lalu
-        } else {
-            // Sisanya variasi hari (0-10 hari lalu)
-            randomDate.setDate(randomDate.getDate() - Math.floor(Math.random() * 10));
-            randomDate.setHours(Math.floor(Math.random() * 24));
-            randomDate.setMinutes(Math.floor(Math.random() * 60));
+            // Variasi Status
+            const statusSeed = Math.random();
+            let status: SubmissionStatus = "APPROVED";
+            if (statusSeed > 0.85) status = "PENDING";
+            else if (statusSeed > 0.7) status = "REVISION";
+
+            const updatedAt = new Date(entryDate);
+            updatedAt.setMinutes(updatedAt.getMinutes() + Math.floor(Math.random() * 60));
+
+            // Final safety check for future dates
+            if (updatedAt > now) updatedAt.setTime(now.getTime() - Math.floor(Math.random() * 100000));
+            if (entryDate > updatedAt) entryDate.setTime(updatedAt.getTime() - 60000);
+
+            submissions.push({
+                id: `SBM-${globalSubCounter.toString().padStart(4, '0')}`,
+                title: `${contentTypes[j % contentTypes.length].replace(/_/g, ' ')} Project ${m}-${j}`,
+                contentType: contentTypes[Math.floor(Math.random() * contentTypes.length)],
+                status: status as SubmissionStatus,
+                authorId: staffMembers[j % staffMembers.length],
+                createdAt: entryDate,
+                updatedAt: updatedAt
+            });
+            globalSubCounter++;
         }
+    }
 
-        const mixedStatus: SubmissionStatus = i % 2 === 0 ? "PENDING" : "REVISION";
-        const subIdNum = 80 + i;
+    // 2. Data Operasional Sangat Baru (Untuk Mingguan & Real-time)
+    console.log("⚡ Menambahkan data operasional real-time...");
+    for (let i = 1; i <= 50; i++) {
+        const recentDate = new Date(now);
+        // Mundurkan antara 1 jam sampai 7 hari
+        const randomMsOffset = Math.floor(Math.random() * (7 * 24 * 60 * 60 * 1000)) + 3600000;
+        recentDate.setTime(now.getTime() - randomMsOffset);
+
+        const updatedAt = new Date(recentDate);
+        updatedAt.setMinutes(updatedAt.getMinutes() + Math.random() * 30 + 5); // Berikan beda 5-35 menit
+
+        // Pastikan tidak melompat ke masa depan
+        if (updatedAt > now) updatedAt.setTime(now.getTime() - 10000);
+        if (recentDate > updatedAt) recentDate.setTime(updatedAt.getTime() - 60000);
 
         submissions.push({
-            id: `SBM-${subIdNum.toString().padStart(2, '0')}`,
-            title: `Tugas Operasional ${i}`,
+            id: `SBM-${globalSubCounter.toString().padStart(4, '0')}`,
+            title: `Operational Task ${i}`,
             contentType: contentTypes[Math.floor(Math.random() * contentTypes.length)],
-            status: mixedStatus,
+            status: (i % 5 === 0 ? "PENDING" : (i % 8 === 0 ? "REVISION" : "APPROVED")) as SubmissionStatus,
             authorId: staffMembers[i % staffMembers.length],
-            createdAt: randomDate
+            createdAt: recentDate,
+            updatedAt: updatedAt
         });
+        globalSubCounter++;
     }
 
-    for (const sub of submissions) {
-        await prisma.submission.create({
-            data: {
-                id: sub.id,
-                title: sub.title,
-                contentType: sub.contentType,
-                status: sub.status,
-                authorId: sub.authorId,
-                createdAt: sub.createdAt
-            }
-        });
+    // Progresif insert agar tidak berat
+    const chunkSize = 50;
+    for (let i = 0; i < submissions.length; i += chunkSize) {
+        const chunk = submissions.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(sub =>
+            prisma.submission.create({
+                data: {
+                    id: sub.id,
+                    title: sub.title,
+                    contentType: sub.contentType,
+                    status: sub.status,
+                    authorId: sub.authorId,
+                    createdAt: sub.createdAt,
+                    updatedAt: sub.updatedAt
+                }
+            })
+        ));
+        console.log(`📡 Terunggah ${Math.min(i + chunkSize, submissions.length)} / ${submissions.length} submissions...`);
     }
 
-    console.log(`✅ Berhasil menambahkan ${submissions.length} data submission.`);
+    console.log(`✅ Total ${submissions.length} data submission berhasil disinkronisasi.`);
 
     // 3. Tambahkan 30 Instruksi khusus untuk pengerjaan intensif dengan format ID standar
     console.log("📝 Menambahkan 30 instruksi dummy dengan format ID standar...");
@@ -498,10 +524,9 @@ async function main() {
 
         // Sekitar 12 dari 30 instruksi sudah ada submission awal atau revisi
         if (i <= 12) {
-            const urgentSubIdNum = 80 + 50 + i;
             await prisma.submission.create({
                 data: {
-                    id: `SBM-${urgentSubIdNum.toString().padStart(2, '0')}`,
+                    id: `SBM-U-${i.toString().padStart(3, '0')}`,
                     title: `Draft Konten Tugas ${i}`,
                     contentType: contentTypes[i % contentTypes.length] as ContentType,
                     status: (i % 3 === 0 ? "REVISION" : "PENDING") as SubmissionStatus,

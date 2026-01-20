@@ -89,6 +89,38 @@ export default function NotificationsPage() {
         }
     };
 
+    const deleteNotification = async (id: string) => {
+        try {
+            const res = await fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+            if (res.ok) {
+                setNotifications(prev => prev.filter(n => n.id !== id));
+                toast.success("Notifikasi dihapus.");
+            }
+        } catch (error) {
+            console.error("Error deleting notification:", error);
+            toast.error("Gagal menghapus notifikasi.");
+        }
+    };
+
+    const clearAllNotifications = async () => {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+
+        if (!confirm("Hapus semua notifikasi?")) return;
+
+        try {
+            const res = await fetch(`/api/notifications?nip=${user.nip}`, { method: "DELETE" });
+            if (res.ok) {
+                setNotifications([]);
+                toast.success("Semua notifikasi dibersihkan.");
+            }
+        } catch (error) {
+            console.error("Error clearing notifications:", error);
+            toast.error("Gagal membersihkan notifikasi.");
+        }
+    };
+
     const getIcon = (type: string) => {
         switch (type) {
             case "SUBMISSION_NEW": return <Plus className="h-5 w-5" />;
@@ -140,6 +172,13 @@ export default function NotificationsPage() {
                         >
                             <CheckCircle2 className="h-4 w-4" />
                             Tandai Semua Terbaca
+                        </button>
+                        <button
+                            onClick={clearAllNotifications}
+                            className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 border-2 border-red-100 rounded-2xl text-xs font-black hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Kosongkan
                         </button>
                     </div>
                 </div>
@@ -240,6 +279,7 @@ export default function NotificationsPage() {
                                         </button>
                                     )}
                                     <button
+                                        onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
                                         className="p-3 bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-2xl border-2 border-gray-100 transition-all active:scale-90"
                                         title="Hapus Notifikasi"
                                     >
