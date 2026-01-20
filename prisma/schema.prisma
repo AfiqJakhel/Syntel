@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  nip           String   @id @db.VarChar(20)
+  firstName     String   @db.VarChar(50)
+  lastName      String   @db.VarChar(50)
+  username      String   @unique @db.VarChar(50)
+  email         String   @unique @db.VarChar(100)
+  phone         String   @db.VarChar(20)
+  password      String   @db.VarChar(255)
+  termsAccepted Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isVerified    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  skills        Json?    @default("[]")
+  role          Role     @default(STAFF)
+
+  // Relations
+  issuedInstructions   Instruction[] @relation("IssuedBy")
+  assignedInstructions InstructionAssignee[]
+  submissions          Submission[]  @relation("SubmittedBy")
+  reviewedSubmissions  Submission[]  @relation("ReviewedBy")
+  notifications        Notification[] @relation("UserNotifications")
+
+  @@map("users")
+}
+
+enum Role {
+  STAFF
+  OFFICER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SubmissionStatus {
+  PENDING
+  REVISION
+  APPROVED
+  REJECTED
+}
+
+enum ContentType {
+  INSTAGRAM_POST
+  INSTAGRAM_CAROUSEL
+  INSTAGRAM_REELS
+  INSTAGRAM_STORY
+  TIKTOK_POST
+  YOUTUBE_VIDEO
+  POSTER
+  DOKUMEN_INTERNAL
+}
+
+model Instruction {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  deadline    DateTime
+  priority    Priority @default(MEDIUM)
+  contentType ContentType?
+  thumbnail   String?
+  
+  // Relations
+  issuerId    String
+  issuer      User     @relation("IssuedBy", fields: [issuerId], references: [nip])
+  
+  assignees   InstructionAssignee[]
+  
+  submission  Submission?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("instructions")
+}
+
+model Submission {
+  id            String           @id
+  title         String
+  description   String?          @db.Text
+  fileUrl       String?
+  contentType   ContentType
+  status        SubmissionStatus @default(PENDING)
+  feedback      String?          @db.Text
+
+  // Relations
+  authorId      String
+  author        User             @relation("SubmittedBy", fields: [authorId], references: [nip])
+
+  instructionId String?          @unique
+  instruction   Instruction?     @relation(fields: [instructionId], references: [id])
+
+  reviewedById  String?
+  reviewer      User?            @relation("ReviewedBy", fields: [reviewedById], references: [nip])
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("submissions")
+}
+
+model InstructionAssignee {
+  instructionId String
+  instruction   Instruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+  
+  staffNip      String
+  staff         User        @relation(fields: [staffNip], references: [nip], onDelete: Cascade)
+
+  assignedAt    DateTime    @default(now())
+
+  @@id([instructionId, staffNip])
+  @@map("instruction_assignees")
+}
+
+enum EventColor {
+  GREEN
+  YELLOW
+  RED
+  BLUE
+}
+
+model Event {
+  id          String     @id @default(cuid())
+  title       String     @db.VarChar(255)
+  description String     @db.Text
+  date        DateTime
+  location    String     @db.VarChar(255)
+  pic         Json       // Array of NIP (user IDs) for PIC (max 2)
+  color       EventColor @default(GREEN)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("events")
+}
+
+enum NotificationType {
+  SUBMISSION_NEW
+  SUBMISSION_REVISION
+  INSTRUCTION_URGENT
+  USER_VERIFICATION
+  INSTRUCTION_ASSIGNED
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id
+  userId    String           @db.VarChar(20)
+  user      User             @relation("UserNotifications", fields: [userId], references: [nip], onDelete: Cascade)
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String           @db.Text
+  isRead    Boolean          @default(false)
+  link      String?          @db.VarChar(255)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
