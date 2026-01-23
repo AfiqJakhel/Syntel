@@ -218,6 +218,7 @@ const officerMenuItems = [
     { label: "Manajemen Event", icon: <Calendar className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/kalender" },
     { label: "Manajemen Instruksi", icon: <FileText className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/instruksi" },
     { label: "Manajemen User", icon: <Users className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/users" },
+    { label: "Arsip Konten", icon: <Archive className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/arsip" },
     { label: "Laporan Konten", icon: <BarChart3 className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/officer/laporan" },
 ];
 

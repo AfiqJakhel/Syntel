@@ -29,6 +29,8 @@ model User {
   submissions          Submission[]  @relation("SubmittedBy")
   reviewedSubmissions  Submission[]  @relation("ReviewedBy")
   notifications        Notification[] @relation("UserNotifications")
+  uploadedResources    ArchiveResource[] @relation("UploadedResources")
+  uploadedFolders      ArchiveFolder[]   @relation("UploadedFolders")
 
   @@map("users")
 }
@@ -90,6 +92,10 @@ model Submission {
   title         String
   description   String?          @db.Text
   fileUrl       String?
+  thumbnail     String?          // Auto-generated thumbnail URL from Cloudinary
+  fileSize      Int?             // File size in bytes
+  duration      Int?             // Video duration in seconds
+  cloudinaryId  String?          // Cloudinary public_id for file management
   contentType   ContentType
   status        SubmissionStatus @default(PENDING)
   feedback      String?          @db.Text
@@ -167,4 +173,40 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+model ArchiveFolder {
+  id           String            @id @default(cuid())
+  name         String
+  description  String?           @db.Text
+  uploaderId   String
+  uploader     User              @relation("UploadedFolders", fields: [uploaderId], references: [nip])
+  resources    ArchiveResource[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@map("archive_folders")
+}
+
+model ArchiveResource {
+  id           String      @id @default(cuid())
+  title        String
+  description  String?     @db.Text
+  fileUrl      String
+  thumbnail    String?
+  fileSize     Int?
+  duration     Int?
+  cloudinaryId String?
+  contentType  ContentType?
+  
+  uploaderId   String
+  uploader     User        @relation("UploadedResources", fields: [uploaderId], references: [nip])
+  
+  folderId     String?
+  folder       ArchiveFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("archive_resources")
 }

@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { rateLimiters, getClientIdentifier, RATE_LIMITS, createRateLimitResponse } from "@/lib/rate-limit";
 
 const prisma = new PrismaClient() as any;
 
 export async function POST(request: Request) {
+    // Rate limiting check - 10 submissions per hour
+    const identifier = getClientIdentifier(request);
+    const rateLimitResult = await rateLimiters.createSubmission.check(identifier);
+
+    if (!rateLimitResult.success) {
+        return createRateLimitResponse(RATE_LIMITS.CREATE_SUBMISSION, rateLimitResult.retryAfter);
+    }
+
     try {
         const body = await request.json();
         const { title, description, fileUrl, contentType, authorId, instructionId } = body;
@@ -29,13 +38,17 @@ export async function POST(request: Request) {
         }
         const customId = `SBM-${String(nextNumber).padStart(2, '0')}`;
 
-        // Create the submission
+        // Create the submission with all Cloudinary metadata
         const submission = await prisma.submission.create({
             data: {
                 id: customId,
                 title,
                 description,
                 fileUrl,
+                thumbnail: body.thumbnail || null,
+                fileSize: body.fileSize || null,
+                duration: body.duration || null,
+                cloudinaryId: body.cloudinaryId || null,
                 contentType,
                 authorId,
                 instructionId: instructionId || null,

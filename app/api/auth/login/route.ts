@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { rateLimiters, getClientIdentifier, RATE_LIMITS, createRateLimitResponse } from "@/lib/rate-limit";
 
 // Best practice untuk inisialisasi Prisma Client di Next.js
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -8,6 +9,14 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(request: NextRequest) {
+    // Rate limiting check - 5 attempts per 15 minutes
+    const identifier = getClientIdentifier(request);
+    const rateLimitResult = await rateLimiters.authLogin.check(identifier);
+
+    if (!rateLimitResult.success) {
+        return createRateLimitResponse(RATE_LIMITS.AUTH_LOGIN, rateLimitResult.retryAfter);
+    }
+
     try {
         const body = await request.json();
         // Menerima 'email' dari frontend (bisa berisi nip, username, atau email)

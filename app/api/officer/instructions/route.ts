@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { rateLimiters, getClientIdentifier, RATE_LIMITS, createRateLimitResponse } from "@/lib/rate-limit";
 
 const prisma = new PrismaClient() as any;
 
 export async function POST(request: Request) {
+    // Rate limiting check - 20 instructions per hour
+    const identifier = getClientIdentifier(request);
+    const rateLimitResult = await rateLimiters.createInstruction.check(identifier);
+
+    if (!rateLimitResult.success) {
+        return createRateLimitResponse(RATE_LIMITS.CREATE_INSTRUCTION, rateLimitResult.retryAfter);
+    }
+
     try {
         const body = await request.json();
         const { title, description, deadline, priority, assignees, issuerId, contentType, thumbnail } = body;
