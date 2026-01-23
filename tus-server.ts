@@ -5,7 +5,6 @@ import { FileStore } from '@tus/file-store';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import type { IncomingMessage, ServerResponse } from 'http';
 
 dotenv.config();
 
@@ -23,14 +22,14 @@ const tusServer = new Server({
     path: '/api/upload/tus',
     datastore: new FileStore({ directory: uploadsDir }),
     respectForwardedHeaders: true,
-    onUploadCreate: async (_req: IncomingMessage, _res: ServerResponse, upload: Upload) => {
+    onUploadCreate: async (_req, upload) => {
         console.log('📤 TUS: New upload started -', upload.id);
         console.log('   Size:', upload.size, 'bytes');
-        return { res: _res };
+        return { metadata: upload.metadata };
     },
-    onUploadFinish: async (_req: IncomingMessage, _res: ServerResponse, upload: Upload) => {
+    onUploadFinish: async (_req, upload) => {
         console.log('✅ TUS: Upload complete -', upload.id);
-        return { res: _res };
+        return {};
     },
 });
 
