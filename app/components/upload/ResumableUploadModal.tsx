@@ -73,7 +73,7 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
 
         uppy.use(Tus, {
             endpoint: 'http://localhost:3001/api/upload/tus',
-            chunkSize: 5 * 1024 * 1024,
+            chunkSize: 256 * 1024, // 256KB chunks for smoother progress
             retryDelays: [0, 1000, 3000, 5000],
             removeFingerprintOnSuccess: true,
             storeFingerprintForResuming: false,
@@ -95,6 +95,15 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
             });
         });
 
+        // Set uploading status immediately when upload starts
+        uppy.on('upload-start', (files) => {
+            console.log('🚀 Upload started for', files.length, 'files');
+            files.forEach(file => {
+                setProcessingStatus(prev => ({ ...prev, [file.id]: 'uploading' }));
+                setUploadProgress(prev => ({ ...prev, [file.id]: 0 }));
+            });
+        });
+
         uppy.on('upload-progress', (file, progress) => {
             if (file && typeof progress.bytesTotal === 'number' && progress.bytesTotal > 0) {
                 const percentage = (progress.bytesUploaded / progress.bytesTotal) * 100;
@@ -108,7 +117,6 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
         uppy.on('upload-success', async (file, response) => {
             if (!file) return;
             console.log('✅ TUS upload success:', file.name);
-            setUploadProgress(prev => ({ ...prev, [file.id]: 100 }));
             setProcessingStatus(prev => ({ ...prev, [file.id]: 'processing' }));
 
             try {
@@ -117,6 +125,31 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
                 if (!tusFileId) throw new Error('No Tus ID');
 
                 console.log('📤 Processing file:', tusFileId);
+
+                // Start polling for progress
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const progressRes = await fetch(`/api/upload/progress?fileId=${tusFileId}`);
+                        const progressData = await progressRes.json();
+                        if (progressData.progress) {
+                            const { progress, stage, message } = progressData.progress;
+                            console.log(`📊 Progress: ${progress}% - ${message}`);
+                            // Update progress (scale: TUS upload was 0-30%, processing is 30-100%)
+                            const scaledProgress = 30 + (progress * 0.7);
+                            setUploadProgress(prev => ({ ...prev, [file.id]: scaledProgress }));
+
+                            if (stage === 'done' || stage === 'error') {
+                                clearInterval(pollInterval);
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore polling errors
+                    }
+                }, 300);
+
+                // Set initial processing progress
+                setUploadProgress(prev => ({ ...prev, [file.id]: 30 }));
+
                 const res = await fetch('/api/upload/process-tus', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -129,6 +162,9 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
                     }),
                 });
 
+                // Stop polling
+                clearInterval(pollInterval);
+
                 if (!res.ok) {
                     const errorData = await res.json();
                     throw new Error(errorData.error || 'Process failed');
@@ -136,6 +172,7 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
 
                 const data = await res.json();
                 console.log('✅ File processed:', data.resource?.id);
+                setUploadProgress(prev => ({ ...prev, [file.id]: 100 }));
                 setProcessingStatus(prev => ({ ...prev, [file.id]: 'done' }));
                 onCompleteRef.current([data.resource]);
             } catch (err: any) {
@@ -422,35 +459,58 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
                                 {files.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500 text-xs">Tidak ada file</div>
                                 ) : (
-                                    files.map(file => (
-                                        <div key={file.id} className={`p-4 rounded-xl ${processingStatus[file.id] === 'error' ? 'bg-red-950/50 border border-red-500/30' : 'bg-white/5'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1.5">
-                                                        <p className="text-[10px] font-bold text-gray-300 truncate pr-2">{file.name}</p>
-                                                        {processingStatus[file.id] === 'done' ? <Check className="h-3 w-3 text-emerald-500 flex-shrink-0" strokeWidth={4} /> :
-                                                            processingStatus[file.id] === 'processing' ? <Loader2 className="h-3 w-3 text-red-400 animate-spin flex-shrink-0" /> :
-                                                                processingStatus[file.id] === 'error' ? <WifiOff className="h-3 w-3 text-red-400 flex-shrink-0" /> :
-                                                                    <span className="text-[8px] font-black text-gray-500 uppercase flex-shrink-0">{Math.round(uploadProgress[file.id] || 0)}%</span>}
+                                    files.map(file => {
+                                        const progress = Math.round(uploadProgress[file.id] || 0);
+                                        const status = processingStatus[file.id];
+
+                                        return (
+                                            <div key={file.id} className={`p-4 rounded-xl ${status === 'error' ? 'bg-red-950/50 border border-red-500/30' : 'bg-white/5'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <p className="text-[10px] font-bold text-gray-300 truncate pr-2">{file.name}</p>
+                                                            {status === 'done' ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[10px] font-black text-emerald-400">Selesai</span>
+                                                                    <Check className="h-4 w-4 text-emerald-500 flex-shrink-0" strokeWidth={3} />
+                                                                </div>
+                                                            ) : status === 'processing' ? (
+                                                                <div className="flex items-center gap-1.5 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                                                                    <span className="text-[12px] font-black text-amber-400 tabular-nums">{progress}%</span>
+                                                                    <Loader2 className="h-3 w-3 text-amber-400 animate-spin flex-shrink-0" />
+                                                                </div>
+                                                            ) : status === 'error' ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[10px] font-black text-red-400">Gagal</span>
+                                                                    <WifiOff className="h-4 w-4 text-red-400 flex-shrink-0" />
+                                                                </div>
+                                                            ) : status === 'uploading' ? (
+                                                                <div className="flex items-center gap-1.5 bg-cyan-500/20 px-2 py-0.5 rounded-full">
+                                                                    <span className="text-[12px] font-black text-cyan-400 tabular-nums">{progress}%</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] font-black text-gray-500">Menunggu...</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                                                            <motion.div
+                                                                className={`h-full ${status === 'done' ? 'bg-emerald-500' : status === 'error' ? 'bg-red-500' : status === 'processing' ? 'bg-amber-500' : status === 'uploading' ? 'bg-cyan-500' : 'bg-gray-600'}`}
+                                                                animate={{ width: `${status === 'error' ? 100 : progress}%` }}
+                                                                transition={{ duration: 0.15, ease: 'easeOut' }}
+                                                            />
+                                                        </div>
+                                                        {/* Error Message */}
+                                                        {status === 'error' && file.errorMessage && (
+                                                            <p className="text-[8px] text-red-400 mt-2 flex items-center gap-1">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                {file.errorMessage}
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                    <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                                                        <motion.div
-                                                            className={`h-full ${processingStatus[file.id] === 'done' ? 'bg-emerald-500' : processingStatus[file.id] === 'error' ? 'bg-red-500' : 'bg-red-600'}`}
-                                                            animate={{ width: `${processingStatus[file.id] === 'error' ? 100 : (uploadProgress[file.id] || 0)}%` }}
-                                                            transition={{ duration: 0.1 }}
-                                                        />
-                                                    </div>
-                                                    {/* Error Message */}
-                                                    {processingStatus[file.id] === 'error' && file.errorMessage && (
-                                                        <p className="text-[8px] text-red-400 mt-2 flex items-center gap-1">
-                                                            <AlertCircle className="h-3 w-3" />
-                                                            {file.errorMessage}
-                                                        </p>
-                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </div>
 

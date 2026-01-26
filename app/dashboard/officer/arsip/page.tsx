@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ResumableUploadModal } from "@/app/components/upload/ResumableUploadModal";
+import { toast } from "react-hot-toast";
 
 
 interface ArchiveFile {
@@ -92,6 +93,16 @@ const contentTypeLabels: Record<string, string> = {
 };
 
 type ArchiveTab = "FINISHED" | "RAW";
+
+// Helper function for file size formatting
+function formatFileSizeHelper(bytes: number | null): string {
+    if (!bytes) return "—";
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
 
 export default function ArchivePage() {
     const router = useRouter();
@@ -290,9 +301,71 @@ export default function ArchivePage() {
         });
     };
 
+    // Keyboard listener for Escape key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setShowPreview(false);
+                setShowInfo(false);
+                setDeleteConfirmId(null);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
+
     const handleDownload = async (file: ArchiveFile) => {
         if (!file.fileUrl) return;
-        window.open(file.fileUrl, '_blank');
+
+        const loadingId = toast.loading("Menyiapkan unduhan...");
+
+        try {
+            // Using fetch + blob is the most reliable way to force a specific filename
+            // and works across different file types without malforming Cloudinary URLs
+            const response = await fetch(file.fileUrl);
+            if (!response.ok) throw new Error("Gagal mengunduh file");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            // Create temporary link
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', file.title); // Use original title as filename
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(link);
+            }, 100);
+
+            toast.dismiss(loadingId);
+        } catch (error) {
+            console.error("Download error:", error);
+            toast.dismiss(loadingId);
+            // Fallback: original URL if fetch fails (e.g. CORS issues)
+            window.open(file.fileUrl, '_blank');
+        }
+    };
+
+    const isPdfFile = (file: ArchiveFile) => {
+        return file.title?.toLowerCase().endsWith('.pdf') ||
+            file.fileUrl?.toLowerCase().includes('.pdf');
+    };
+
+    const handleBulkDownload = async () => {
+        if (selectedIds.size === 0) return;
+        const filesToDownload = files.filter(f => selectedIds.has(f.id));
+
+        toast.success(`Mengunduh ${filesToDownload.length} file...`);
+
+        for (const file of filesToDownload) {
+            await handleDownload(file);
+            // Small delay to prevent browser overload
+            await new Promise(resolve => setTimeout(resolve, 600));
+        }
     };
 
     const toggleSelection = (id: string, e?: React.MouseEvent) => {
@@ -504,6 +577,13 @@ export default function ArchivePage() {
                             <div className="flex items-center gap-2 bg-red-50 p-2 rounded-[2rem] border border-red-100 mr-4">
                                 <span className="px-4 text-[10px] font-black text-red-600 uppercase tracking-widest">{selectedIds.size} Terpilih</span>
                                 <button
+                                    onClick={handleBulkDownload}
+                                    className="p-3 bg-emerald-600 text-white rounded-[1.5rem] hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                                    title="Download Semua Terpilih"
+                                >
+                                    <Download className="h-4 w-4" />
+                                </button>
+                                <button
                                     onClick={() => setDeleteConfirmId("bulk")}
                                     className="p-3 bg-red-600 text-white rounded-[1.5rem] hover:bg-red-700 transition-all shadow-lg shadow-red-200"
                                     title="Hapus Terpilih"
@@ -706,12 +786,62 @@ export default function ArchivePage() {
                             </div>
 
                             <div className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-gray-50 group border border-gray-100 shadow-inner">
-                                <img src={selectedFile.thumbnail || "/api/placeholder/400/300"} alt={selectedFile.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                    <button onClick={() => setShowPreview(true)} className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
-                                        {selectedFile.fileType === "VIDEO" ? <Play className="h-6 w-6" fill="currentColor" /> : <Eye className="h-6 w-6" />}
-                                    </button>
-                                </div>
+                                {selectedFile.fileType === "DOCUMENT" ? (
+                                    /* Premium Document Preview */
+                                    <div className="w-full h-full bg-gradient-to-br from-slate-100 via-slate-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                                        {/* Decorative Background Pattern */}
+                                        <div className="absolute inset-0 opacity-[0.03]">
+                                            <div className="absolute top-4 left-4 w-32 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute top-8 left-4 w-48 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute top-12 left-4 w-40 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute top-16 left-4 w-52 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute top-20 left-4 w-36 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute bottom-4 right-4 w-28 h-1 bg-slate-900 rounded-full" />
+                                            <div className="absolute bottom-8 right-4 w-44 h-1 bg-slate-900 rounded-full" />
+                                        </div>
+
+                                        {/* Document Icon with Extension Badge */}
+                                        <div className="relative mb-4 group-hover:scale-110 transition-transform duration-500">
+                                            <div className="w-20 h-24 bg-white rounded-xl shadow-xl border border-slate-200/50 flex flex-col items-center justify-center relative overflow-hidden">
+                                                {/* Document corner fold effect */}
+                                                <div className="absolute top-0 right-0 w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-100 rounded-bl-lg shadow-inner" />
+                                                <div className="absolute top-0 right-0 w-0 h-0 border-l-[24px] border-l-transparent border-t-[24px] border-t-slate-100" />
+
+                                                <FileText className="h-8 w-8 text-red-500 mb-1" strokeWidth={1.5} />
+
+                                                {/* File Extension Badge */}
+                                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-wider rounded-full shadow-lg">
+                                                    {selectedFile.title?.split('.').pop()?.toUpperCase() || 'DOC'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* File Name */}
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center mt-4 max-w-[80%] truncate">
+                                            {selectedFile.title}
+                                        </p>
+                                        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                                            Berkas Dokumen
+                                        </p>
+
+                                        {/* Hover Overlay */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-red-600/90 via-red-600/60 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end justify-center pb-8">
+                                            <button onClick={() => setShowPreview(true)} className="px-6 py-3 bg-white text-red-600 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
+                                                <Eye className="h-4 w-4" /> Lihat Dokumen
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* Image/Video Preview */
+                                    <>
+                                        <img src={selectedFile.thumbnail || "/api/placeholder/400/300"} alt={selectedFile.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                            <button onClick={() => setShowPreview(true)} className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                                                {selectedFile.fileType === "VIDEO" ? <Play className="h-6 w-6" fill="currentColor" /> : <Eye className="h-6 w-6" />}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             <div className="space-y-6">
@@ -807,7 +937,52 @@ export default function ArchivePage() {
                         <div className="w-full h-full max-w-6xl flex flex-col items-center justify-center gap-8 relative">
                             <button onClick={() => setShowPreview(false)} className="absolute top-0 right-0 p-4 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all backdrop-blur-md z-10"><X className="h-8 w-8" /></button>
                             <div className="w-full aspect-video rounded-[3rem] overflow-hidden bg-black border border-white/10 shadow-3xl">
-                                {selectedFile.fileType === "VIDEO" ? <video src={selectedFile.fileUrl} controls autoPlay className="w-full h-full" /> : <img src={selectedFile.fileUrl} alt={selectedFile.title} className="w-full h-full object-contain" />}
+                                {selectedFile.fileType === "VIDEO" ? (
+                                    <video src={selectedFile.fileUrl} controls autoPlay className="w-full h-full" />
+                                ) : selectedFile.fileType === "DOCUMENT" ? (
+                                    /* Premium Document Download Card - Safe from auto-downloads & white screens */
+                                    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-12 relative overflow-hidden">
+                                        {/* Animated Background Pattern */}
+                                        <div className="absolute inset-0 opacity-10">
+                                            <div className="absolute top-10 left-10 w-40 h-1 bg-white rounded-full" />
+                                            <div className="absolute top-16 left-10 w-60 h-1 bg-white rounded-full" />
+                                            <div className="absolute top-22 left-10 w-48 h-1 bg-white rounded-full" />
+                                            <div className="absolute bottom-10 right-10 w-32 h-1 bg-white rounded-full" />
+                                            <div className="absolute bottom-16 right-10 w-52 h-1 bg-white rounded-full" />
+                                        </div>
+
+                                        {/* Large Document Icon */}
+                                        <div className="relative mb-8">
+                                            <div className="w-32 h-40 bg-white rounded-2xl shadow-2xl flex flex-col items-center justify-center relative">
+                                                <div className="absolute top-0 right-0 w-10 h-10 bg-gradient-to-br from-slate-200 to-slate-100 rounded-bl-xl" />
+                                                <FileText className="h-14 w-14 text-red-500" strokeWidth={1.5} />
+                                                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-lg">
+                                                    {selectedFile.title?.split('.').pop()?.toUpperCase() || 'DOC'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <h3 className="text-2xl font-black text-white uppercase tracking-tight text-center mb-2 px-10">
+                                            {selectedFile.title}
+                                        </h3>
+                                        <p className="text-xs font-bold text-slate-400 mb-10 uppercase tracking-widest">
+                                            Berkas Dokumen
+                                        </p>
+
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDownload(selectedFile);
+                                            }}
+                                            className="group relative z-[30] flex items-center gap-4 px-12 py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] shadow-2xl shadow-red-900/40 hover:scale-105 transition-all active:scale-95 cursor-pointer pointer-events-auto"
+                                        >
+                                            <Download className="h-5 w-5 group-hover:bounce" />
+                                            Unduh Dokumen
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <img src={selectedFile.fileUrl} alt={selectedFile.title} className="w-full h-full object-contain" />
+                                )}
                             </div>
                         </div>
                     </motion.div>
@@ -867,11 +1042,29 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
         >
             <div className="absolute inset-0 z-10 transition-transform duration-1000 group-hover:scale-110">
                 {file.fileType === "DOCUMENT" ? (
-                    <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center p-12">
-                        <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
-                            <FileText className="h-8 w-8 text-slate-400" />
+                    <div className="w-full h-full bg-gradient-to-br from-slate-100 via-slate-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                        {/* Decorative lines pattern */}
+                        <div className="absolute inset-0 opacity-[0.04]">
+                            <div className="absolute top-3 left-3 w-16 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute top-5 left-3 w-24 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute top-7 left-3 w-20 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute bottom-3 right-3 w-12 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute bottom-5 right-3 w-20 h-0.5 bg-slate-900 rounded-full" />
                         </div>
-                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest text-center">Berkas Dokumen</p>
+
+                        {/* Document Icon with Badge */}
+                        <div className="relative group-hover:scale-110 transition-transform duration-500">
+                            <div className="w-14 h-18 bg-white rounded-lg shadow-lg border border-slate-200/50 flex flex-col items-center justify-center relative overflow-hidden p-2">
+                                <div className="absolute top-0 right-0 w-4 h-4 bg-gradient-to-br from-slate-200 to-slate-100 rounded-bl-md" />
+                                <FileText className="h-6 w-6 text-red-500" strokeWidth={1.5} />
+                            </div>
+                            {/* Extension Badge */}
+                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-red-600 text-white text-[6px] font-black uppercase tracking-wider rounded-full shadow-md">
+                                {file.title?.split('.').pop()?.toUpperCase().slice(0, 4) || 'DOC'}
+                            </div>
+                        </div>
+
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest text-center mt-4">Dokumen</p>
                     </div>
                 ) : (
                     <img src={file.thumbnail || "/api/placeholder/400/300"} alt={file.title} className="w-full h-full object-cover" />
@@ -914,7 +1107,7 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
                         </h3>
                     </div>
                     <p className="text-[8px] font-black text-red-500 uppercase tracking-widest pl-5">
-                        {(file.fileSize ? (file.fileSize / (1024 * 1024)).toFixed(1) : "—")} MB
+                        {formatFileSizeHelper(file.fileSize)}
                     </p>
                 </div>
             </div>
@@ -945,7 +1138,7 @@ function FileListItem({ file, selected, isCurrentActive, onSelect, onToggleSelec
                 <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">Uploader: {file.author}</p>
             </div>
             <div className="text-[10px] font-bold text-gray-300 uppercase w-32 hidden md:block">{new Date(file.createdAt).toLocaleDateString()}</div>
-            <div className="text-[10px] font-black text-gray-400 uppercase w-20 text-right">{(file.fileSize ? (file.fileSize / (1024 * 1024)).toFixed(1) : "—")} MB</div>
+            <div className="text-[10px] font-black text-gray-400 uppercase w-20 text-right">{formatFileSizeHelper(file.fileSize)}</div>
             <div className="flex items-center gap-2">
                 <button onClick={(e) => { e.stopPropagation(); onPreview(); }} className="p-2.5 hover:bg-white rounded-xl text-gray-400 hover:text-red-600 hover:shadow-sm transition-all"><Eye className="h-4 w-4" /></button>
                 <button onClick={(e) => { e.stopPropagation(); onDownload(file); }} className="p-2.5 hover:bg-white rounded-xl text-gray-400 hover:text-red-600 hover:shadow-sm transition-all"><Download className="h-4 w-4" /></button>

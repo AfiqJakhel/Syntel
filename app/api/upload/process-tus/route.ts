@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
+import { setProgress, clearProgress } from '@/lib/upload-progress-store';
 
 // Configure Cloudinary with longer timeout
 cloudinary.config({
@@ -13,11 +14,11 @@ cloudinary.config({
 });
 
 export async function POST(request: NextRequest) {
+    let progressId = '';
+
     try {
         const body = await request.json();
         const { tusFilePath, fileName, uploaderId, description, folderId } = body;
-
-        console.log('📤 Processing TUS upload:', { tusFilePath, fileName, uploaderId });
 
         if (!tusFilePath || !fileName || !uploaderId) {
             return NextResponse.json(
@@ -26,6 +27,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Use tusFilePath as progress tracking ID
+        progressId = tusFilePath;
+
+        console.log('📤 Processing TUS upload:', { tusFilePath, fileName, uploaderId });
+
+        // Set initial progress
+        setProgress(progressId, 5, 'cloudinary', 'Memulai upload ke cloud...');
+
         // Get the full path to the Tus uploaded file
         const fullPath = path.join(process.cwd(), 'uploads', 'tus', tusFilePath);
         console.log('📁 File path:', fullPath);
@@ -33,6 +42,7 @@ export async function POST(request: NextRequest) {
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
             console.error('❌ File not found at:', fullPath);
+            setProgress(progressId, 0, 'error', 'File tidak ditemukan');
             return NextResponse.json(
                 { error: 'File not found' },
                 { status: 404 }
@@ -43,6 +53,8 @@ export async function POST(request: NextRequest) {
         const stats = fs.statSync(fullPath);
         const fileSize = stats.size;
         console.log('📊 File size:', fileSize, 'bytes');
+
+        setProgress(progressId, 10, 'cloudinary', 'Menyiapkan file...');
 
         // Determine file type and resource type for Cloudinary
         const ext = path.extname(fileName).toLowerCase();
@@ -76,10 +88,11 @@ export async function POST(request: NextRequest) {
             console.log('⚠️ Existing file found, will override:', existingFile.id);
         }
 
-        // Upload to Cloudinary with retry logic
+        // Upload to Cloudinary with progress tracking using upload_stream
         console.log('☁️ Uploading to Cloudinary...');
+        setProgress(progressId, 15, 'cloudinary', 'Mengunggah ke Cloudinary...');
 
-        let uploadResult;
+        let uploadResult: any;
         let retryCount = 0;
         const maxRetries = 3;
 
@@ -101,20 +114,45 @@ export async function POST(request: NextRequest) {
                         uploadOptions.invalidate = true;
                     }
 
-                    cloudinary.uploader.upload(fullPath, uploadOptions, (error, result) => {
-                        if (error) reject(error);
-                        else resolve(result);
+                    // Use upload_stream for progress tracking
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        uploadOptions,
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+
+                    // Read file and write to upload stream with progress
+                    const readStream = fs.createReadStream(fullPath);
+                    let uploadedBytes = 0;
+
+                    readStream.on('data', (chunk: Buffer | string) => {
+                        const chunkLength = typeof chunk === 'string' ? chunk.length : chunk.length;
+                        uploadedBytes += chunkLength;
+                        // Progress from 15% to 85% during Cloudinary upload
+                        const cloudinaryProgress = 15 + Math.round((uploadedBytes / fileSize) * 70);
+                        setProgress(progressId, cloudinaryProgress, 'cloudinary', `Mengunggah: ${Math.round((uploadedBytes / fileSize) * 100)}%`);
                     });
+
+                    readStream.on('error', (err) => {
+                        reject(err);
+                    });
+
+                    readStream.pipe(uploadStream);
                 });
 
                 console.log('✅ Cloudinary upload success:', uploadResult.public_id);
+                setProgress(progressId, 90, 'database', 'Menyimpan ke database...');
                 break; // Success, exit retry loop
 
             } catch (cloudinaryError: any) {
                 retryCount++;
                 console.error(`❌ Cloudinary attempt ${retryCount} failed:`, cloudinaryError.message);
+                setProgress(progressId, 15, 'cloudinary', `Retry ${retryCount}/${maxRetries}...`);
 
                 if (retryCount >= maxRetries) {
+                    setProgress(progressId, 0, 'error', `Gagal upload: ${cloudinaryError.message}`);
                     return NextResponse.json(
                         { error: `Cloudinary error after ${maxRetries} attempts: ${cloudinaryError.message}` },
                         { status: 500 }
@@ -159,6 +197,8 @@ export async function POST(request: NextRequest) {
             console.log('✅ Database created:', resource.id);
         }
 
+        setProgress(progressId, 95, 'database', 'Membersihkan file sementara...');
+
         // Delete the Tus file after successful upload
         try {
             fs.unlinkSync(fullPath);
@@ -171,6 +211,13 @@ export async function POST(request: NextRequest) {
             console.error('⚠️ Error deleting Tus files:', err);
         }
 
+        setProgress(progressId, 100, 'done', 'Selesai!');
+
+        // Clear progress after a short delay
+        setTimeout(() => {
+            if (progressId) clearProgress(progressId);
+        }, 5000);
+
         return NextResponse.json({
             success: true,
             resource,
@@ -178,6 +225,9 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('❌ TUS PROCESS ERROR:', error);
+        if (progressId) {
+            setProgress(progressId, 0, 'error', error.message || 'Upload gagal');
+        }
         return NextResponse.json(
             { error: error.message || 'Failed to process upload' },
             { status: 500 }

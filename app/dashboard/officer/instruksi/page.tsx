@@ -59,9 +59,9 @@ export default function InstruksiManagementPage() {
 function InstruksiContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const initialTab = (searchParams.get("view") as "FEED" | "TRACKING") || "FEED";
-    const initialSearch = searchParams.get("search") || "";
-    const initialFilter = searchParams.get("filter") || "ALL";
+    const initialTab = (searchParams?.get("view") as "FEED" | "TRACKING") ?? "FEED";
+    const initialSearch = searchParams?.get("search") ?? "";
+    const initialFilter = searchParams?.get("filter") ?? "ALL";
 
     // State management
     const [viewMode, setViewMode] = useState<"FEED" | "TRACKING">(initialTab);
@@ -181,13 +181,13 @@ function InstruksiContent() {
     useEffect(() => {
         fetchData();
         // Update URL to match current viewMode 
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(searchParams?.toString() ?? "");
         params.set("view", viewMode);
         router.replace(`?${params.toString()}`, { scroll: false });
     }, [viewMode]);
 
     useEffect(() => {
-        const subId = searchParams.get("submissionId");
+        const subId = searchParams?.get("submissionId");
         if (subId && submissions.length > 0) {
             const sub = submissions.find(s => s.id === subId);
             if (sub) {

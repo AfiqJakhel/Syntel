@@ -148,7 +148,7 @@ export default function PageLogin() {
       // Simpan user data ke localStorage untuk management role & session
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      setSuccess("Login berhasil! Mengarahkan...");
+      setSuccess("Login berhasil!");
 
       // Reset form
       setLoginData({
