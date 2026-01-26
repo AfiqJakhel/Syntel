@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { setProgress, clearProgress } from '@/lib/upload-progress-store';
+import { getVideoThumbnail } from '@/lib/cloudinary';
 
 // Configure Cloudinary with longer timeout
 cloudinary.config({
@@ -171,7 +172,11 @@ export async function POST(request: NextRequest) {
                 where: { id: existingFile.id },
                 data: {
                     fileUrl: uploadResult.secure_url,
-                    thumbnail: fileType === 'DOCUMENT' ? null : (uploadResult.thumbnail_url || uploadResult.secure_url),
+                    thumbnail: fileType === 'DOCUMENT'
+                        ? null
+                        : (fileType === 'VIDEO'
+                            ? getVideoThumbnail(uploadResult.secure_url)
+                            : (uploadResult.thumbnail_url || uploadResult.secure_url)),
                     fileSize: fileSize,
                     cloudinaryId: uploadResult.public_id,
                     uploaderId: uploaderId,
@@ -185,7 +190,11 @@ export async function POST(request: NextRequest) {
                     title: title,
                     description: description || null,
                     fileUrl: uploadResult.secure_url,
-                    thumbnail: fileType === 'DOCUMENT' ? null : (uploadResult.thumbnail_url || uploadResult.secure_url),
+                    thumbnail: fileType === 'DOCUMENT'
+                        ? null
+                        : (fileType === 'VIDEO'
+                            ? getVideoThumbnail(uploadResult.secure_url)
+                            : (uploadResult.thumbnail_url || uploadResult.secure_url)),
                     fileSize: fileSize,
                     duration: uploadResult.duration || null,
                     cloudinaryId: uploadResult.public_id,

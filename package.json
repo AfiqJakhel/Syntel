@@ -10,7 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0",
+    "@prisma/client": "^6.19.2",
     "@tabler/icons-react": "^3.36.1",
     "@tus/file-store": "^2.0.0",
     "@tus/server": "^2.3.0",
@@ -31,6 +31,7 @@
     "motion": "^12.24.12",
     "next": "16.1.1",
     "next-cloudinary": "^6.17.5",
+    "prisma": "^6.19.2",
     "react": "19.2.3",
     "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
@@ -51,7 +52,6 @@
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
-    "prisma": "^6.0.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
 import {
     Search,
@@ -40,6 +40,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { ResumableUploadModal } from "@/app/components/upload/ResumableUploadModal";
 import { toast } from "react-hot-toast";
+import { fetchWithDedup, invalidateCache } from "@/lib/fetchWithDedup";
 
 
 interface ArchiveFile {
@@ -68,8 +69,11 @@ interface ArchiveFolder {
     id: string;
     name: string;
     description: string | null;
+    parentId?: string | null;
+    parent?: ArchiveFolder | null;
     _count?: {
         resources: number;
+        subFolders?: number;
     };
     createdAt: string;
 }
@@ -123,6 +127,10 @@ export default function ArchivePage() {
     const [showPreview, setShowPreview] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
+    const [newFolderDescription, setNewFolderDescription] = useState("");
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
     const [uploadModalKey, setUploadModalKey] = useState(0);
 
     // Multi-select feature
@@ -141,19 +149,52 @@ export default function ArchivePage() {
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
+    // Folder delete modal state
+    const [folderToDelete, setFolderToDelete] = useState<ArchiveFolder | null>(null);
+    const [isDeletingFolder, setIsDeletingFolder] = useState(false);
+
     // Filters
     const [search, setSearch] = useState("");
     const [contentTypeFilter, setContentTypeFilter] = useState("ALL");
     const [sortBy, setSortBy] = useState("updatedAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [page, setPage] = useState(1);
-    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+    const folderParam = searchParams ? searchParams.get("folder") : null;
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(folderParam);
+
+    // Handle folder navigation (URL-driven to prevent double-fetch blink)
+    const navigateToFolder = useCallback((id: string | null) => {
+        if (!searchParams) return;
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (id) {
+            params.set("folder", id);
+        } else {
+            params.delete("folder");
+        }
+
+        const queryString = params.toString();
+        const fullPath = `${window.location.pathname}${queryString ? `?${queryString}` : ""}`;
+        router.push(fullPath, { scroll: false });
+    }, [router, searchParams]);
+
+    // Sync state with URL (for back/forward buttons)
+    useEffect(() => {
+        if (!searchParams) return;
+        const folderInUrl = searchParams.get("folder");
+        if (folderInUrl !== currentFolderId) {
+            setCurrentFolderId(folderInUrl);
+        }
+
+    }, [searchParams, currentFolderId]);
 
     // Dropdowns
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const sortDropdownRef = useRef<HTMLDivElement>(null);
     const infoSidebarRef = useRef<HTMLDivElement>(null);
+    const lastRequestId = useRef(0);
 
     // User data for uploaderId
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -228,6 +269,7 @@ export default function ArchivePage() {
     }, [isUploadingBulk]);
 
     const fetchArchive = useCallback(async (options?: { silent?: boolean }) => {
+        const requestId = ++lastRequestId.current;
         if (!options?.silent) setIsLoading(true);
         try {
             // Fetch Resources
@@ -237,52 +279,125 @@ export default function ArchivePage() {
                 limit: "24",
                 sortBy,
                 sortOrder,
-                _t: Date.now().toString(), // Bypass browser cache
                 ...(activeTab === "FINISHED" && contentTypeFilter !== "ALL" && { contentType: contentTypeFilter }),
                 ...(activeTab === "RAW" && { folderId: currentFolderId || "root" }),
                 ...(search && { search }),
             });
 
-            const response = await fetch(`${apiEndpoint}?${params}`);
-            if (response.ok) {
-                const data = await response.json();
-                setFiles(data.files);
-                setStats(data.stats);
+            // Build all fetch promises to run in parallel (using dedup to prevent double calls)
+            const fetchPromises: Promise<any>[] = [
+                fetchWithDedup(`${apiEndpoint}?${params}`)
+            ];
+
+            // Add folder info fetch if inside a folder (for breadcrumbs)
+            if (currentFolderId) {
+                fetchPromises.push(
+                    fetchWithDedup(`/api/archive/folders?id=${currentFolderId}`)
+                );
             }
 
-            // Fetch Folders if in RAW tab and no search
-            if (activeTab === "RAW" && !search && !currentFolderId) {
-                const folderRes = await fetch("/api/archive/folders");
-                if (folderRes.ok) {
-                    const folderData = await folderRes.json();
-                    setFolders(folderData.folders);
+            // Add subfolder fetch if in RAW tab without search
+            if (activeTab === "RAW" && !search) {
+                fetchPromises.push(
+                    fetchWithDedup(`/api/archive/folders?parentId=${currentFolderId || "null"}`)
+                );
+            }
+
+            // Execute all fetches in parallel
+            const results = await Promise.all(fetchPromises);
+
+            // Process resources result
+            const resourcesData = results[0];
+            if (resourcesData) {
+                setFiles(resourcesData.files);
+                setStats(resourcesData.stats);
+            }
+
+            // Process folder info result (if fetched)
+            let resultIndex = 1;
+            if (currentFolderId && results[resultIndex]) {
+                const folderInfoData = results[resultIndex];
+                if (folderInfoData?.folder) {
+                    setFolders(prev => {
+                        const foldersMap = new Map(prev.map(f => [f.id, f]));
+                        let current = folderInfoData.folder;
+
+                        // Add/Update the breadcrumb chain
+                        while (current) {
+                            foldersMap.set(current.id, { ...current, parent: undefined }); // Drop parent deep objects to save state
+                            current = current.parent;
+                        }
+
+                        return Array.from(foldersMap.values());
+                    });
                 }
-            } else {
+                resultIndex++;
+            }
+
+            // Process subfolders result (if fetched)
+            if (activeTab === "RAW" && !search) {
+                const folderData = results[resultIndex];
+                if (folderData?.folders) {
+                    setFolders(prev => {
+                        const foldersMap = new Map(prev.map(f => [f.id, f]));
+
+                        // Add or update subfolders in the map
+                        folderData.folders.forEach((f: ArchiveFolder) => {
+                            foldersMap.set(f.id, f);
+                        });
+
+                        return Array.from(foldersMap.values());
+                    });
+                }
+            } else if (!currentFolderId) {
                 setFolders([]);
             }
 
         } catch (error) {
             console.error("Error fetching archive:", error);
         } finally {
-            setIsLoading(false);
+            if (requestId === lastRequestId.current) {
+                setIsLoading(false);
+            }
         }
     }, [activeTab, page, sortBy, sortOrder, contentTypeFilter, search, currentFolderId]);
 
-    useEffect(() => {
-        setFiles([]);
-        setPage(1);
-        setIsSelectionMode(false);
-        setSelectedIds(new Set());
-        fetchArchive();
-    }, [activeTab, fetchArchive]);
+    // Track if it's the initial mount to avoid double fetch
+    const isInitialMount = useRef(true);
+    const prevDepsRef = useRef({ activeTab, page, sortBy, sortOrder, contentTypeFilter, currentFolderId });
 
-    // Debounced search
+    // Main data fetching effect - handles all filter/tab/page changes
     useEffect(() => {
+        const prevDeps = prevDepsRef.current;
+        const tabChanged = prevDeps.activeTab !== activeTab;
+
+        // Reset state when tab changes
+        if (tabChanged) {
+            setFiles([]);
+            setPage(1);
+            setIsSelectionMode(false);
+            setSelectedIds(new Set());
+        }
+
+        fetchArchive();
+
+        prevDepsRef.current = { activeTab, page, sortBy, sortOrder, contentTypeFilter, currentFolderId };
+    }, [activeTab, page, sortBy, sortOrder, contentTypeFilter, currentFolderId, fetchArchive]);
+
+    // Debounced search - separate effect with proper cleanup
+    useEffect(() => {
+        // Skip on initial mount since main effect handles it
+        if (isInitialMount.current) return;
+
         const timer = setTimeout(() => {
-            if (page !== 1) setPage(1);
-            else fetchArchive();
+            if (page !== 1) {
+                setPage(1); // This will trigger the main effect
+            } else {
+                fetchArchive();
+            }
         }, 300);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
     const formatFileSize = (bytes: number | null): string => {
@@ -388,6 +503,7 @@ export default function ArchivePage() {
                 method: "DELETE"
             });
             if (res.ok) {
+                invalidateCache("/api/archive"); // Clear cache after mutation
                 setFiles(prev => prev.filter(f => f.id !== id));
                 if (selectedFile?.id === id) {
                     setSelectedFile(null);
@@ -411,6 +527,7 @@ export default function ArchivePage() {
                 method: "DELETE"
             });
             if (res.ok) {
+                invalidateCache("/api/archive"); // Clear cache after mutation
                 setFiles(prev => prev.filter(f => !selectedIds.has(f.id)));
                 setSelectedIds(new Set());
                 setIsSelectionMode(false);
@@ -423,17 +540,63 @@ export default function ArchivePage() {
         }
     };
 
-    const handleDeleteFolder = async (id: string) => {
-        if (!confirm("Hapus folder ini? Konten di dalamnya akan tetap ada di arsip namun tidak lagi dikelompokkan.")) return;
+    const handleCreateFolder = async () => {
+        if (!newFolderName) return;
+        setIsCreatingFolder(true);
         try {
-            const res = await fetch(`/api/archive/folders?id=${id}`, {
-                method: "DELETE"
+            const res = await fetch("/api/archive/folders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: newFolderName,
+                    description: newFolderDescription,
+                    uploaderId: currentUser?.nip,
+                    parentId: currentFolderId // Set parent if we are inside a folder
+                })
             });
             if (res.ok) {
-                setFolders(prev => prev.filter(f => f.id !== id));
+                invalidateCache("/api/archive/folders"); // Clear cache after mutation
+                const data = await res.json();
+                setFolders(prev => [data.folder, ...prev]);
+                setShowCreateFolderModal(false);
+                setNewFolderName("");
+                setNewFolderDescription("");
+                toast.success("Folder berhasil dibuat!");
             }
         } catch (error) {
             console.error(error);
+            toast.error("Gagal membuat folder");
+        } finally {
+            setIsCreatingFolder(false);
+        }
+    };
+
+    const handleDeleteFolder = async (deleteContents: boolean = true) => {
+        if (!folderToDelete) return;
+        setIsDeletingFolder(true);
+        try {
+            const res = await fetch(`/api/archive/folders?id=${folderToDelete.id}&deleteContents=${deleteContents}`, {
+                method: "DELETE"
+            });
+            if (res.ok) {
+                const data = await res.json();
+                invalidateCache("/api/archive"); // Clear all archive cache
+                setFolders(prev => prev.filter(f => f.id !== folderToDelete.id));
+                setFolderToDelete(null);
+                toast.success(
+                    deleteContents
+                        ? `Folder dan ${data.deletedResources || 0} file berhasil dihapus`
+                        : "Folder berhasil dihapus"
+                );
+                fetchArchive(); // Refresh to update file list
+            } else {
+                toast.error("Gagal menghapus folder");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan saat menghapus folder");
+        } finally {
+            setIsDeletingFolder(false);
         }
     };
 
@@ -503,7 +666,10 @@ export default function ArchivePage() {
         }
 
         setIsUploadingBulk(false);
-        if (successCount > 0) fetchArchive();
+        if (successCount > 0) {
+            invalidateCache("/api/archive"); // Clear cache after upload
+            fetchArchive();
+        }
         setTimeout(() => setShowFloatingProgress(false), 5000);
     };
 
@@ -517,10 +683,12 @@ export default function ArchivePage() {
                             <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-200">
                                 <Archive className="h-6 w-6 text-white" />
                             </div>
-                            <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase sm:text-5xl">Arsip Konten</h1>
+                            <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase sm:text-5xl">
+                                {currentFolderId ? (folders.find(f => f.id === currentFolderId)?.name || "Detail Folder") : "Arsip Konten"}
+                            </h1>
                         </div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.3em] flex items-center gap-3 ml-1">
-                            Aset Produksi & Media <span className="w-12 h-[2px] bg-red-100"></span>
+                            {currentFolderId ? "Isi Folder Terpilih" : "Aset Produksi & Media"} <span className="w-12 h-[2px] bg-red-100"></span>
                         </p>
                     </div>
 
@@ -549,10 +717,31 @@ export default function ArchivePage() {
 
                 {/* Breadcrumbs for Folders */}
                 {activeTab === "RAW" && currentFolderId && (
-                    <div className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                        <button onClick={() => setCurrentFolderId(null)} className="text-gray-400 hover:text-red-600 transition-colors">Arsip</button>
-                        <span className="text-gray-200">/</span>
-                        <span className="text-red-600">{folders.find(f => f.id === currentFolderId)?.name || "Folder"}</span>
+                    <div className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar py-2">
+                        <button onClick={() => navigateToFolder(null)} className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">Arsip</button>
+
+                        {(() => {
+                            const path = [];
+                            let current = folders.find(f => f.id === currentFolderId);
+                            while (current) {
+                                path.unshift(current);
+                                // Try to find parent in the already fetched folders
+                                current = current.parentId ? folders.find(f => f.id === current?.parentId) : undefined;
+                            }
+
+                            return path.map((f, idx) => (
+                                <React.Fragment key={f.id}>
+                                    <span className="text-gray-200 flex-shrink-0">/</span>
+                                    <button
+                                        onClick={() => navigateToFolder(f.id)}
+                                        disabled={idx === path.length - 1}
+                                        className={`transition-colors flex-shrink-0 ${idx === path.length - 1 ? "text-red-600 cursor-default" : "text-gray-400 hover:text-red-600"}`}
+                                    >
+                                        {f.name}
+                                    </button>
+                                </React.Fragment>
+                            ));
+                        })()}
                     </div>
                 )}
 
@@ -601,16 +790,25 @@ export default function ArchivePage() {
                         )}
 
                         {activeTab === "RAW" && (
-                            <button
-                                onClick={() => {
-                                    if (showUploadModal) setUploadModalKey(prev => prev + 1);
-                                    setShowUploadModal(true);
-                                }}
-                                className="flex items-center gap-3 bg-red-600 text-white px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-xl shadow-red-200 hover:scale-[1.02] active:scale-95 transition-all"
-                            >
-                                <Plus className="h-5 w-5" />
-                                Upload Bahan
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowCreateFolderModal(true)}
+                                    className="flex items-center gap-3 bg-white border border-gray-100 text-gray-900 px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-sm hover:border-red-200 transition-all"
+                                >
+                                    <FolderPlus className="h-5 w-5 text-red-600" />
+                                    Buat Folder
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (showUploadModal) setUploadModalKey(prev => prev + 1);
+                                        setShowUploadModal(true);
+                                    }}
+                                    className="flex items-center gap-3 bg-red-600 text-white px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-xl shadow-red-200 hover:scale-[1.02] active:scale-95 transition-all"
+                                >
+                                    <Plus className="h-5 w-5" />
+                                    Upload Bahan
+                                </button>
+                            </div>
                         )}
 
                         {/* Sort Dropdown */}
@@ -664,23 +862,23 @@ export default function ArchivePage() {
                 {/* Content Area */}
                 <div className="relative">
                     {isLoading ? (
-                        <div className="grid grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-6 pt-10">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 pt-10">
                             {[...Array(12)].map((_, i) => <div key={i} className="aspect-[4/3] rounded-[2.5rem] bg-gray-100/50 animate-pulse border border-gray-50" />)}
                         </div>
                     ) : (
                         <>
-                            {/* Folders Section */}
-                            {folders.length > 0 && (
+                            {/* Folders Section - Now always show folders that are children of current root/folder */}
+                            {folders.filter(f => f.parentId === (currentFolderId || null)).length > 0 && (
                                 <div className="mb-12 space-y-6">
                                     <div className="flex items-center gap-3 mb-6">
                                         <FolderPlus className="h-4 w-4 text-red-600" />
                                         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Folders</h2>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 gap-4">
-                                        {folders.map(folder => (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                        {folders.filter(f => f.parentId === (currentFolderId || null)).map(folder => (
                                             <div
                                                 key={folder.id}
-                                                onClick={() => setCurrentFolderId(folder.id)}
+                                                onClick={() => navigateToFolder(folder.id)}
                                                 className="group flex items-center gap-4 bg-white border border-gray-100 p-5 rounded-2xl hover:border-red-200 hover:shadow-xl hover:shadow-red-500/5 transition-all cursor-pointer relative"
                                             >
                                                 <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
@@ -688,10 +886,12 @@ export default function ArchivePage() {
                                                 </div>
                                                 <div className="min-w-0 pr-6">
                                                     <p className="text-[10px] font-black text-gray-900 uppercase truncate tracking-tight">{folder.name}</p>
-                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">{folder._count?.resources || 0} Files</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">
+                                                        {folder._count?.resources || 0} Files • {folder._count?.subFolders || 0} Folders
+                                                    </p>
                                                 </div>
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                                                    onClick={(e) => { e.stopPropagation(); setFolderToDelete(folder); }}
                                                     className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg text-red-300 hover:text-red-500 transition-all"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
@@ -716,11 +916,11 @@ export default function ArchivePage() {
                                     {files.length > 0 && (
                                         <div className="flex items-center gap-3 mb-6">
                                             <ImageIcon className="h-4 w-4 text-red-600" />
-                                            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Files</h2>
+                                            <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em]">Files</h2>
                                         </div>
                                     )}
                                     {viewMode === "grid" ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8 gap-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                             <AnimatePresence mode="popLayout">
                                                 {files.map((file) => (
                                                     <FileCard
@@ -764,6 +964,55 @@ export default function ArchivePage() {
                                             </AnimatePresence>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Extreme Premium Pagination */}
+                            {stats && stats.totalPages > 1 && (
+                                <div className="mt-16 flex flex-col items-center gap-6 pb-12">
+                                    <div className="flex items-center gap-2 p-2 bg-white border border-gray-100 rounded-[2.5rem] shadow-xl shadow-gray-100">
+                                        <button
+                                            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                                            disabled={page === 1}
+                                            className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        >
+                                            <ChevronDown className="h-5 w-5 rotate-90" />
+                                        </button>
+
+                                        <div className="flex items-center gap-1 px-4">
+                                            {Array.from({ length: Math.min(5, stats.totalPages) }, (_, i) => {
+                                                let pageNum = page;
+                                                const total = stats.totalPages;
+
+                                                if (total <= 5) pageNum = i + 1;
+                                                else if (page <= 3) pageNum = i + 1;
+                                                else if (page >= total - 2) pageNum = total - 4 + i;
+                                                else pageNum = page - 2 + i;
+
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => setPage(pageNum)}
+                                                        className={`w-12 h-12 flex items-center justify-center rounded-2xl text-sm font-black transition-all ${page === pageNum ? "bg-red-600 text-white shadow-lg shadow-red-200" : "hover:bg-gray-50 text-gray-400"}`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setPage(prev => Math.min(stats.totalPages, prev + 1))}
+                                            disabled={page === stats.totalPages}
+                                            className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        >
+                                            <ChevronDown className="h-5 w-5 -rotate-90" />
+                                        </button>
+                                    </div>
+
+                                    <p className="text-sm font-black text-gray-300 uppercase tracking-[0.2em]">
+                                        Halaman {page} dari {stats.totalPages} — Total {stats.total} Aset
+                                    </p>
                                 </div>
                             )}
                         </>
@@ -1011,6 +1260,50 @@ export default function ArchivePage() {
                 )}
             </AnimatePresence>
 
+            {/* Create Folder Modal */}
+            <AnimatePresence>
+                {showCreateFolderModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[300] flex items-center justify-center p-4" onClick={() => setShowCreateFolderModal(false)}>
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="p-10 space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Folder Baru</h2>
+                                    <button onClick={() => setShowCreateFolderModal(false)} className="p-3 hover:bg-gray-50 rounded-xl transition-all"><X className="h-5 w-5 text-gray-300" /></button>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nama Folder</label>
+                                        <input
+                                            type="text" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+                                            placeholder="Nama folder..."
+                                            autoFocus
+                                            className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 focus:outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Keterangan</label>
+                                        <textarea
+                                            value={newFolderDescription} onChange={e => setNewFolderDescription(e.target.value)}
+                                            placeholder="Detail singkat..." rows={3}
+                                            className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 focus:outline-none transition-all resize-none"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleCreateFolder}
+                                        disabled={!newFolderName || isCreatingFolder}
+                                        className="w-full py-5 bg-gray-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-xl hover:bg-black disabled:bg-gray-200 transition-all flex items-center justify-center gap-3"
+                                    >
+                                        {isCreatingFolder ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPlus className="h-4 w-4" />}
+                                        Buat Folder
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Resumable Upload Modal */}
             <AnimatePresence>
                 {showUploadModal && (
@@ -1019,10 +1312,102 @@ export default function ArchivePage() {
                         onClose={() => setShowUploadModal(false)}
                         onComplete={async (uploads) => {
                             // Silent refresh to prevent flicker
+                            invalidateCache("/api/archive"); // Clear cache after success
                             await fetchArchive({ silent: true });
                         }}
                         uploaderId={currentUser?.nip || ''}
+                        currentFolderId={currentFolderId}
                     />
+                )}
+            </AnimatePresence>
+
+            {/* Folder Delete Confirmation Modal */}
+            <AnimatePresence>
+                {folderToDelete && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+                        onClick={() => !isDeletingFolder && setFolderToDelete(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Warning Icon */}
+                            <div className="flex justify-center mb-6">
+                                <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-red-50 rounded-3xl flex items-center justify-center shadow-lg shadow-red-100">
+                                    <Trash2 className="h-10 w-10 text-red-500" />
+                                </div>
+                            </div>
+
+                            {/* Title */}
+                            <h3 className="text-xl font-black text-center text-gray-900 mb-2">
+                                Hapus Folder?
+                            </h3>
+
+                            {/* Folder Info Card */}
+                            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <Folder className="h-6 w-6 text-red-600 fill-red-600" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-gray-900 truncate">{folderToDelete.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {folderToDelete._count?.resources || 0} file • {folderToDelete._count?.subFolders || 0} subfolder
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Warning Message */}
+                            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-8">
+                                <div className="flex gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <div className="text-sm text-amber-800">
+                                        <p className="font-bold mb-1">Perhatian!</p>
+                                        <p className="text-amber-700">
+                                            Semua file dan subfolder di dalam folder ini akan <span className="font-bold">dihapus permanen</span> dan tidak dapat dikembalikan.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setFolderToDelete(null)}
+                                    disabled={isDeletingFolder}
+                                    className="flex-1 py-4 px-6 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all disabled:opacity-50"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteFolder(true)}
+                                    disabled={isDeletingFolder}
+                                    className="flex-1 py-4 px-6 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isDeletingFolder ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Menghapus...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 className="h-4 w-4" />
+                                            Ya, Hapus
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </DashboardLayout>
@@ -1102,11 +1487,11 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
                                 file.fileType === "IMAGE" ? <ImageIcon className="h-3 w-3" /> :
                                     <FileText className="h-3 w-3" />}
                         </div>
-                        <h3 className="text-[10px] font-black text-white uppercase truncate tracking-tight flex-1">
+                        <h3 className="text-[11px] font-black text-white uppercase truncate tracking-tight flex-1">
                             {file.title}
                         </h3>
                     </div>
-                    <p className="text-[8px] font-black text-red-500 uppercase tracking-widest pl-5">
+                    <p className="text-[9px] font-black text-red-500 uppercase tracking-widest pl-5">
                         {formatFileSizeHelper(file.fileSize)}
                     </p>
                 </div>

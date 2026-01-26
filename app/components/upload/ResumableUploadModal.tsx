@@ -15,6 +15,7 @@ interface ResumableUploadModalProps {
     onClose: () => void;
     onComplete: (uploadedFiles: any[]) => void;
     uploaderId: string;
+    currentFolderId?: string | null; // Pass the current folder ID for nested uploads
 }
 
 interface ProcessingState {
@@ -28,7 +29,7 @@ interface FileItem {
     errorMessage?: string;
 }
 
-export function ResumableUploadModal({ onClose, onComplete, uploaderId }: ResumableUploadModalProps) {
+export function ResumableUploadModal({ onClose, onComplete, uploaderId, currentFolderId }: ResumableUploadModalProps) {
     // --- States ---
     const [viewMode, setViewMode] = useState<'MODAL' | 'WIDGET'>('MODAL');
     const [groupIntoFolder, setGroupIntoFolder] = useState(false);
@@ -57,6 +58,12 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
     useEffect(() => { descriptionRef.current = description; }, [description]);
     useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
     useEffect(() => { uploaderIdRef.current = uploaderId; }, [uploaderId]);
+    // Set initial folder from currentFolderId prop (for nested uploads)
+    useEffect(() => {
+        if (currentFolderId && !groupIntoFolder) {
+            folderIdRef.current = currentFolderId;
+        }
+    }, [currentFolderId, groupIntoFolder]);
 
     // --- Initialize Uppy ONCE on mount ---
     useEffect(() => {
@@ -242,7 +249,7 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fileNames: files.map(f => f.name),
-                    folderId: null,
+                    folderId: currentFolderId || null, // Check duplicates in current folder
                 }),
             });
 
@@ -271,7 +278,12 @@ export function ResumableUploadModal({ onClose, onComplete, uploaderId }: Resuma
                 const folderRes = await fetch('/api/archive/folders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: folderName, description, uploaderId }),
+                    body: JSON.stringify({
+                        name: folderName,
+                        description,
+                        uploaderId,
+                        parentId: currentFolderId || null // Create as subfolder if inside a folder
+                    }),
                 });
                 if (folderRes.ok) {
                     const folderData = await folderRes.json();

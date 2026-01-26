@@ -181,6 +181,12 @@ model ArchiveFolder {
   description  String?           @db.Text
   uploaderId   String
   uploader     User              @relation("UploadedFolders", fields: [uploaderId], references: [nip])
+  
+  // Nesting support
+  parentId     String?
+  parent       ArchiveFolder?    @relation("SubFolders", fields: [parentId], references: [id], onDelete: Cascade)
+  subFolders   ArchiveFolder[]   @relation("SubFolders")
+  
   resources    ArchiveResource[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

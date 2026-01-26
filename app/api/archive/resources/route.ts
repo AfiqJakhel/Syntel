@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isVideoUrl, isImageUrl } from "@/lib/cloudinary";
+import { isVideoUrl, isImageUrl, getVideoThumbnail } from "@/lib/cloudinary";
 import cloudinary from "@/lib/cloudinary";
 import { rateLimiters, getClientIdentifier, RATE_LIMITS, createRateLimitResponse } from "@/lib/rate-limit";
 
@@ -47,22 +47,34 @@ export async function GET(request: Request) {
             }),
         ]);
 
-        const files = resources.map((res: any) => ({
-            id: res.id,
-            title: res.title,
-            description: res.description,
-            fileUrl: res.fileUrl,
-            thumbnail: res.thumbnail,
-            fileSize: res.fileSize,
-            duration: res.duration,
-            cloudinaryId: res.cloudinaryId,
-            folderId: res.folderId,
-            folderName: res.folder?.name || null,
-            fileType: isVideoUrl(res.fileUrl) ? "VIDEO" : isImageUrl(res.fileUrl) ? "IMAGE" : "DOCUMENT",
-            author: `${res.uploader.firstName} ${res.uploader.lastName}`,
-            createdAt: res.createdAt.toISOString(),
-            updatedAt: res.updatedAt.toISOString(),
-        }));
+        const files = resources.map((res: any) => {
+            const isVideo = isVideoUrl(res.fileUrl);
+            const isImage = isImageUrl(res.fileUrl);
+
+            // Fix: If thumbnail is missing or is just the video URL, generate a proper JPG thumbnail
+            let thumbnail = res.thumbnail;
+            if (!thumbnail || isVideoUrl(thumbnail)) {
+                if (isVideo) thumbnail = getVideoThumbnail(res.fileUrl);
+                else if (isImage) thumbnail = res.fileUrl;
+            }
+
+            return {
+                id: res.id,
+                title: res.title,
+                description: res.description,
+                fileUrl: res.fileUrl,
+                thumbnail,
+                fileSize: res.fileSize,
+                duration: res.duration,
+                cloudinaryId: res.cloudinaryId,
+                folderId: res.folderId,
+                folderName: res.folder?.name || null,
+                fileType: isVideo ? "VIDEO" : isImage ? "IMAGE" : "DOCUMENT",
+                author: `${res.uploader.firstName} ${res.uploader.lastName}`,
+                createdAt: res.createdAt.toISOString(),
+                updatedAt: res.updatedAt.toISOString(),
+            };
+        });
 
         return NextResponse.json({
             files,

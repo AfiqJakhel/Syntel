@@ -72,12 +72,11 @@ export async function GET(request: Request) {
             const isVideo = isVideoUrl(fileUrl);
             const isImage = isImageUrl(fileUrl);
 
-            // Generate thumbnail if not exists
+            // Generate thumbnail if not exists or if it's a video URL
             let thumbnail = submission.thumbnail;
-            if (!thumbnail && isVideo) {
-                thumbnail = getVideoThumbnail(fileUrl);
-            } else if (!thumbnail && isImage) {
-                thumbnail = fileUrl;
+            if (!thumbnail || isVideoUrl(thumbnail)) {
+                if (isVideo) thumbnail = getVideoThumbnail(fileUrl);
+                else if (isImage) thumbnail = fileUrl;
             }
 
             return {
