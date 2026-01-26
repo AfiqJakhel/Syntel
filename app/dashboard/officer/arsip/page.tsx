@@ -701,7 +701,7 @@ export default function ArchivePage() {
                                 : "text-gray-400 hover:text-gray-600"
                                 }`}
                         >
-                            Bahan Mentah
+                            Dokumentasi
                         </button>
                         <button
                             onClick={() => setActiveTab("FINISHED")}
@@ -710,7 +710,7 @@ export default function ArchivePage() {
                                 : "text-gray-400 hover:text-gray-600"
                                 }`}
                         >
-                            Hasil Produksi
+                            Hasil Konten
                         </button>
                     </div>
                 </div>
