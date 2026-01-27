@@ -1,0 +1,202 @@
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { startOfMonth, endOfMonth, startOfYear, endOfYear, startOfWeek, endOfWeek } from "date-fns";
+
+const prisma = new PrismaClient() as any;
+
+export async function GET(req: Request) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const authorId = searchParams.get('authorId');
+        const period = searchParams.get('period') || 'Monthly';
+
+        if (!authorId) {
+            return NextResponse.json({ error: "authorId is required" }, { status: 400 });
+        }
+
+        let dateFilter = {};
+        const now = new Date();
+
+        if (period === 'Weekly') {
+            dateFilter = {
+                gte: startOfWeek(now),
+                lte: endOfWeek(now)
+            };
+        } else if (period === 'Monthly') {
+            dateFilter = {
+                gte: startOfMonth(now),
+                lte: endOfMonth(now)
+            };
+        } else if (period === 'Yearly') {
+            dateFilter = {
+                gte: startOfYear(now),
+                lte: endOfYear(now)
+            };
+        }
+
+        // Total submissions by this staff member
+        const totalSubmissions = await prisma.submission.count({
+            where: { authorId }
+        });
+
+        // Pending submissions (awaiting review)
+        const totalPending = await prisma.submission.count({
+            where: { 
+                authorId,
+                status: 'PENDING' 
+            }
+        });
+
+        // Approved submissions (archived/completed)
+        const totalApproved = await prisma.submission.count({
+            where: { 
+                authorId,
+                status: 'APPROVED' 
+            }
+        });
+
+        // Active tasks assigned to this staff member
+        const activeTasks = await prisma.instructionAssignment.count({
+            where: {
+                staffId: authorId,
+                instruction: {
+                    deadline: {
+                        gte: now
+                    },
+                    NOT: {
+                        submission: {
+                            status: 'APPROVED'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Recent submissions by this staff member
+        const recentActivities = await prisma.submission.findMany({
+            where: { authorId },
+            take: 5,
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                author: {
+                    select: {
+                        firstName: true,
+                        lastName: true
+                    }
+                }
+            }
+        });
+
+        const activityColors = ["bg-blue-500", "bg-purple-500", "bg-red-500", "bg-emerald-500", "bg-orange-500"];
+
+        const activities = recentActivities.map((sub: any, index: number) => {
+            let actionLabel = "mengirim pengajuan";
+            if (sub.status === "PENDING") actionLabel = "mengunggah pengajuan";
+            else if (sub.status === "REVISION") actionLabel = "mengajukan revisi";
+            else if (sub.status === "APPROVED") actionLabel = "menyelesaikan pengajuan";
+
+            return {
+                id: sub.id,
+                user: `${sub.author.firstName} ${sub.author.lastName}`,
+                action: actionLabel,
+                status: sub.status,
+                detail: sub.title,
+                avatar: sub.author.firstName[0],
+                color: activityColors[index % activityColors.length],
+                timestamp: sub.updatedAt
+            };
+        });
+
+        // Upcoming instructions/tasks for this staff member
+        const upcomingInstructions = await prisma.instructionAssignment.findMany({
+            where: {
+                staffId: authorId,
+                instruction: {
+                    deadline: {
+                        gte: now
+                    },
+                    NOT: {
+                        submission: {
+                            status: 'APPROVED'
+                        }
+                    }
+                }
+            },
+            take: 6,
+            orderBy: { 
+                instruction: {
+                    deadline: 'asc'
+                }
+            },
+            include: {
+                instruction: {
+                    include: {
+                        submission: {
+                            select: {
+                                status: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const deadlines = upcomingInstructions.map((assignment: any) => {
+            const inst = assignment.instruction;
+            let statusLabel = "Pending";
+            if (inst.submission) {
+                if (inst.submission.status === "PENDING") statusLabel = "Menunggu Review";
+                else if (inst.submission.status === "REVISION") statusLabel = "Revisi";
+            }
+
+            return {
+                id: inst.id,
+                title: inst.title,
+                date: inst.deadline.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+                status: statusLabel
+            };
+        });
+
+        // Content type breakdown for this staff member
+        const contentStats = await prisma.submission.groupBy({
+            by: ['contentType'],
+            where: {
+                authorId,
+                status: 'APPROVED',
+                ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {})
+            },
+            _count: {
+                _all: true
+            }
+        });
+
+        const colors = [
+            "#FF6B6B", // Red
+            "#FFA94D", // Orange
+            "#A78BFA", // Purple
+            "#60A5FA", // Blue
+            "#4ADE80", // Green
+            "#F472B6", // Pink
+            "#FB923C", // Amber
+        ];
+
+        const contentTypeStats = contentStats.map((item: any, index: number) => ({
+            type: item.contentType,
+            count: item._count._all,
+            color: colors[index % colors.length]
+        }));
+
+        return NextResponse.json({
+            totalSubmissions,
+            totalPending,
+            totalApproved,
+            activeTasks,
+            activities,
+            deadlines,
+            contentStats: contentTypeStats
+        });
+    } catch (error: any) {
+        console.error("❌ STAFF STATS FETCH ERROR:", error.message);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
