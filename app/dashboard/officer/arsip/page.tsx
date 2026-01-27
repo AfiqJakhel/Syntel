@@ -36,7 +36,10 @@ import {
     Briefcase,
     FolderPlus,
     Archive,
-    Shield
+    Shield,
+    Copy,
+    Edit2,
+    Move
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ResumableUploadModal } from "@/app/components/upload/ResumableUploadModal";
@@ -161,6 +164,22 @@ export default function ArchivePage() {
 
     // Create folder - permission selection
     const [selectedStaffForNewFolder, setSelectedStaffForNewFolder] = useState<Set<string>>(new Set());
+
+    // Item Action States
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [fileToRename, setFileToRename] = useState<ArchiveFile | null>(null);
+    const [folderToRename, setFolderToRename] = useState<ArchiveFolder | null>(null);
+    const [newTitle, setNewTitle] = useState("");
+    const [isRenaming, setIsRenaming] = useState(false);
+
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [fileToMove, setFileToMove] = useState<ArchiveFile | null>(null);
+    const [folderToMove, setFolderToMove] = useState<ArchiveFolder | null>(null);
+    const [isMoving, setIsMoving] = useState(false);
+
+    const [folderInfoToShow, setFolderInfoToShow] = useState<ArchiveFolder | null>(null);
+    const [fileInfoToShow, setFileInfoToShow] = useState<ArchiveFile | null>(null);
+    const [allPotentialFolders, setAllPotentialFolders] = useState<ArchiveFolder[]>([]);
 
     // Filters
     const [search, setSearch] = useState("");
@@ -289,7 +308,7 @@ export default function ArchivePage() {
                 sortBy,
                 sortOrder,
                 ...(activeTab === "FINISHED" && contentTypeFilter !== "ALL" && { contentType: contentTypeFilter }),
-                ...(activeTab === "RAW" && { folderId: currentFolderId || "root" }),
+                folderId: currentFolderId || "root",
                 ...(search && { search }),
             });
 
@@ -305,8 +324,8 @@ export default function ArchivePage() {
                 );
             }
 
-            // Add subfolder fetch if in RAW tab without search
-            if (activeTab === "RAW" && !search) {
+            // Add subfolder fetch if not searching
+            if (!search) {
                 fetchPromises.push(
                     fetchWithDedup(`/api/archive/folders?parentId=${currentFolderId || "null"}`)
                 );
@@ -344,22 +363,24 @@ export default function ArchivePage() {
             }
 
             // Process subfolders result (if fetched)
-            if (activeTab === "RAW" && !search) {
+            if (!search && results[resultIndex]) {
                 const folderData = results[resultIndex];
                 if (folderData?.folders) {
                     setFolders(prev => {
                         const foldersMap = new Map(prev.map(f => [f.id, f]));
 
                         // Add or update subfolders in the map
-                        folderData.folders.forEach((f: ArchiveFolder) => {
+                        folderData.folders.forEach((f: any) => {
                             foldersMap.set(f.id, f);
                         });
 
                         return Array.from(foldersMap.values());
                     });
                 }
-            } else if (!currentFolderId) {
-                setFolders([]);
+            } else if (!currentFolderId && !search) {
+                // If at root and not searching, but no results found (e.g. empty root)
+                // We keep existing folders if they are parents, but maybe clear root subfolders?
+                // Actually, the current Map logic handles this better.
             }
 
         } catch (error) {
@@ -508,20 +529,23 @@ export default function ArchivePage() {
     const handleDelete = async (id: string) => {
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/archive/resources?id=${id}`, {
+            const apiEndpoint = activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources";
+            const res = await fetch(`${apiEndpoint}?id=${id}`, {
                 method: "DELETE"
             });
             if (res.ok) {
-                invalidateCache("/api/archive"); // Clear cache after mutation
+                invalidateCache(apiEndpoint); // Clear cache after mutation
                 setFiles(prev => prev.filter(f => f.id !== id));
                 if (selectedFile?.id === id) {
                     setSelectedFile(null);
                     setShowInfo(false);
                 }
                 setDeleteConfirmId(null);
+                toast.success("File berhasil dihapus");
             }
         } catch (error) {
             console.error(error);
+            toast.error("Gagal menghapus file");
         } finally {
             setIsDeleting(false);
         }
@@ -532,17 +556,20 @@ export default function ArchivePage() {
         setIsBulkDeleting(true);
         try {
             const idsArray = Array.from(selectedIds);
-            const res = await fetch(`/api/archive/resources?ids=${idsArray.join(",")}`, {
+            const apiEndpoint = activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources";
+            const res = await fetch(`${apiEndpoint}?ids=${idsArray.join(",")}`, {
                 method: "DELETE"
             });
             if (res.ok) {
-                invalidateCache("/api/archive"); // Clear cache after mutation
+                invalidateCache(apiEndpoint); // Clear cache after mutation
                 setFiles(prev => prev.filter(f => !selectedIds.has(f.id)));
                 setSelectedIds(new Set());
                 setIsSelectionMode(false);
+                toast.success(`${idsArray.length} file berhasil dihapus`);
             }
         } catch (error) {
             console.error(error);
+            toast.error("Gagal menghapus file terpilih");
         } finally {
             setIsBulkDeleting(false);
             setDeleteConfirmId(null);
@@ -609,6 +636,176 @@ export default function ArchivePage() {
         }
     };
 
+    const handleRename = async () => {
+        if (!fileToRename && !folderToRename) return;
+        if (!newTitle) return;
+        setIsRenaming(true);
+        try {
+            const apiEndpoint = folderToRename ? "/api/archive/folders" : (activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources");
+            const payload = folderToRename ? { id: folderToRename.id, name: newTitle } : { id: fileToRename?.id, title: newTitle };
+
+            const res = await fetch(apiEndpoint, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                invalidateCache(apiEndpoint);
+                if (folderToRename) {
+                    setFolders(prev => prev.map(f => f.id === folderToRename.id ? { ...f, name: newTitle } : f));
+                    setFolderToRename(null);
+                } else {
+                    setFiles(prev => prev.map(f => f.id === fileToRename?.id ? { ...f, title: newTitle } : f));
+                    setFileToRename(null);
+                }
+                setShowRenameModal(false);
+                toast.success("Nama berhasil diubah");
+            } else {
+                toast.error("Gagal mengubah nama");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan");
+        } finally {
+            setIsRenaming(false);
+        }
+    };
+
+    const handleCopy = async (file: ArchiveFile) => {
+        const loadingId = toast.loading("Menggandakan file...");
+        try {
+            const apiEndpoint = activeTab === "FINISHED" ? "/api/archive/copy" : "/api/archive/resources/copy";
+            const res = await fetch(apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: file.id })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const newFile = activeTab === "FINISHED" ? data.submission : data.resource;
+
+                invalidateCache(activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources");
+
+                // If we are in the same view, we can add it locally
+                if (newFile && (!newFile.folderId || newFile.folderId === currentFolderId || (newFile.folderId === null && currentFolderId === null))) {
+                    // Transform if needed (api returns raw DB objects often)
+                    // But for simplicity, let's just refresh silently to be safe and consistent
+                    fetchArchive({ silent: true });
+                }
+
+                toast.success("File berhasil digandakan", { id: loadingId });
+            } else {
+                toast.error("Gagal menggandakan file", { id: loadingId });
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan", { id: loadingId });
+        }
+    };
+
+    const handleMove = async (targetFolderId: string | null) => {
+        if (!fileToMove && !folderToMove) return;
+        setIsMoving(true);
+        try {
+            const apiEndpoint = folderToMove ? "/api/archive/folders" : (activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources");
+            const payload = folderToMove ? { id: folderToMove.id, parentId: targetFolderId || "root" } : { id: fileToMove?.id, folderId: targetFolderId || "root" };
+
+            const res = await fetch(apiEndpoint, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                invalidateCache(apiEndpoint);
+                if (folderToMove) {
+                    setFolders(prev => prev.filter(f => f.id !== folderToMove.id));
+                    setFolderToMove(null);
+                } else {
+                    setFiles(prev => prev.filter(f => String(f.id) !== String(fileToMove?.id)));
+                    setFileToMove(null);
+                }
+                setShowMoveModal(false);
+                toast.success("Item berhasil dipindahkan");
+                fetchArchive({ silent: true });
+            } else {
+                toast.error("Gagal memindahkan item");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan");
+        } finally {
+            setIsMoving(false);
+        }
+    };
+
+    const handleCopyFolder = async (folder: ArchiveFolder) => {
+        const loadingId = toast.loading("Menggandakan folder...");
+        try {
+            const res = await fetch("/api/archive/folders/copy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: folder.id })
+            });
+            if (res.ok) {
+                invalidateCache("/api/archive/folders");
+                toast.success("Folder berhasil digandakan", { id: loadingId });
+                fetchArchive({ silent: true });
+            } else {
+                toast.error("Gagal menggandakan folder", { id: loadingId });
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan", { id: loadingId });
+        }
+    };
+
+    const handleDownloadFolder = async (folder: ArchiveFolder) => {
+        const loadingId = toast.loading("Menyiapkan unduhan folder...");
+        try {
+            // Fetch resources for this folder
+            const res = await fetch(`/api/archive/resources?folderId=${folder.id}&limit=100`);
+            const data = await res.json();
+
+            if (data.files && data.files.length > 0) {
+                toast.success(`Mengunduh ${data.files.length} file...`, { id: loadingId });
+                // Trigger batch download
+                data.files.forEach((file: ArchiveFile, index: number) => {
+                    setTimeout(() => {
+                        const link = document.createElement("a");
+                        link.href = file.fileUrl;
+                        link.download = file.title;
+                        link.target = "_blank";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }, index * 800); // Stagger safely
+                });
+            } else {
+                toast.error("Folder kosong atau tidak memiliki file langsung", { id: loadingId });
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal mengunduh folder", { id: loadingId });
+        }
+    };
+
+    // Auto load folders for move modal when it opens
+    useEffect(() => {
+        if (showMoveModal) {
+            const fetchAllFolders = async () => {
+                try {
+                    const res = await fetch("/api/archive/folders?all=true");
+                    const data = await res.json();
+                    setAllPotentialFolders(data.folders || []);
+                } catch (err) {
+                    console.error("Failed to fetch folders:", err);
+                }
+            };
+            fetchAllFolders();
+        }
+    }, [showMoveModal]);
+
     const startBulkUpload = async (selectedFiles: File[], description: string, groupIntoFolder: boolean, folderName?: string) => {
         setUploadQueue(selectedFiles);
         setUploadDescription(description);
@@ -622,7 +819,12 @@ export default function ArchivePage() {
                 const folderRes = await fetch("/api/archive/folders", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: folderName, description, uploaderId: currentUser?.nip })
+                    body: JSON.stringify({
+                        name: folderName,
+                        description,
+                        uploaderId: currentUser?.nip,
+                        parentId: currentFolderId // Ensure subfolder is created if inside a folder
+                    })
                 });
                 if (folderRes.ok) {
                     const folderData = await folderRes.json();
@@ -630,6 +832,7 @@ export default function ArchivePage() {
                 }
             } catch (err) {
                 console.error("Folder creation failed:", err);
+                toast.error("Gagal membuat folder, file akan diupload ke folder saat ini");
             }
         }
 
@@ -671,12 +874,16 @@ export default function ArchivePage() {
                 successCount++;
             } catch (err) {
                 console.error(err);
+                toast.error(`Gagal mengunggah: ${file.name}`);
             }
         }
 
         setIsUploadingBulk(false);
         if (successCount > 0) {
-            invalidateCache("/api/archive"); // Clear cache after upload
+            invalidateCache("/api/archive");
+            invalidateCache("/api/archive/resources");
+            invalidateCache("/api/archive/folders");
+            toast.success(`${successCount} file berhasil diunggah`);
             fetchArchive();
         }
         setTimeout(() => setShowFloatingProgress(false), 5000);
@@ -725,7 +932,7 @@ export default function ArchivePage() {
                 </div>
 
                 {/* Breadcrumbs for Folders */}
-                {activeTab === "RAW" && currentFolderId && (
+                {currentFolderId && (
                     <div className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar py-2">
                         <button onClick={() => navigateToFolder(null)} className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">Arsip</button>
 
@@ -903,7 +1110,7 @@ export default function ArchivePage() {
                                         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Folders</h2>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                        {folders.filter(f => f.parentId === (currentFolderId || null)).map(folder => (
+                                        {folders.filter(f => (f.parentId || null) === (currentFolderId || null)).map(folder => (
                                             <div
                                                 key={folder.id}
                                                 className="group flex items-center gap-4 bg-white border border-gray-100 p-5 rounded-2xl hover:border-red-200 hover:shadow-xl hover:shadow-red-500/5 transition-all cursor-pointer relative"
@@ -934,19 +1141,71 @@ export default function ArchivePage() {
                                                         </button>
 
                                                         {/* Dropdown Menu */}
-                                                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50">
-                                                            <div className="p-2">
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setFolderToDelete(folder);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-all rounded-xl"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                    Hapus Folder
-                                                                </button>
-                                                            </div>
+                                                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-50 p-2 overflow-hidden">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setFolderInfoToShow(folder);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                            >
+                                                                <Info className="h-4 w-4" />
+                                                                View Information
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDownloadFolder(folder);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                                Download
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setFolderToRename(folder);
+                                                                    setNewTitle(folder.name);
+                                                                    setShowRenameModal(true);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                            >
+                                                                <Edit2 className="h-4 w-4" />
+                                                                Rename
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleCopyFolder(folder);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                            >
+                                                                <Copy className="h-4 w-4" />
+                                                                Make a Copy
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setFolderToMove(folder);
+                                                                    setShowMoveModal(true);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                            >
+                                                                <Move className="h-4 w-4" />
+                                                                Move Folder
+                                                            </button>
+                                                            <div className="h-px bg-gray-50 my-1" />
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setFolderToDelete(folder);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                Delete Folder
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -992,6 +1251,20 @@ export default function ArchivePage() {
                                                         onToggleSelect={(e) => toggleSelection(file.id, e)}
                                                         onPreview={() => { setSelectedFile(file); setShowPreview(true); }}
                                                         onDelete={(id) => setDeleteConfirmId(id)}
+                                                        onInfo={(file) => {
+                                                            setFileInfoToShow(file);
+                                                        }}
+                                                        onDownload={handleDownload}
+                                                        onRename={(file) => {
+                                                            setFileToRename(file);
+                                                            setNewTitle(file.title);
+                                                            setShowRenameModal(true);
+                                                        }}
+                                                        onMove={(file) => {
+                                                            setFileToMove(file);
+                                                            setShowMoveModal(true);
+                                                        }}
+                                                        onCopy={handleCopy}
                                                     />
                                                 ))}
                                             </AnimatePresence>
@@ -1015,6 +1288,20 @@ export default function ArchivePage() {
                                                         onToggleSelect={(e) => toggleSelection(file.id, e)}
                                                         onPreview={() => { setSelectedFile(file); setShowPreview(true); }}
                                                         onDelete={(id) => setDeleteConfirmId(id)}
+                                                        onInfo={(file) => {
+                                                            setFileInfoToShow(file);
+                                                        }}
+                                                        onDownload={handleDownload}
+                                                        onRename={(file) => {
+                                                            setFileToRename(file);
+                                                            setNewTitle(file.title);
+                                                            setShowRenameModal(true);
+                                                        }}
+                                                        onMove={(file) => {
+                                                            setFileToMove(file);
+                                                            setShowMoveModal(true);
+                                                        }}
+                                                        onCopy={handleCopy}
                                                     />
                                                 ))}
                                             </AnimatePresence>
@@ -1482,6 +1769,203 @@ export default function ArchivePage() {
                 }
             </AnimatePresence >
 
+            {/* Rename Modal */}
+            <AnimatePresence>
+                {showRenameModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[300] flex items-center justify-center p-4">
+                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl">
+                            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter mb-8">Ubah Nama {folderToRename ? "Folder" : "File"}</h2>
+                            <div className="space-y-1 mb-8">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nama Baru</label>
+                                <input
+                                    type="text"
+                                    value={newTitle}
+                                    onChange={(e) => setNewTitle(e.target.value)}
+                                    className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 focus:outline-none transition-all"
+                                    placeholder="Masukkan nama baru..."
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button onClick={() => { setShowRenameModal(false); setFolderToRename(null); setFileToRename(null); }} className="py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest text-gray-400 hover:bg-gray-50 transition-all">Batal</button>
+                                <button
+                                    onClick={handleRename}
+                                    disabled={isRenaming || !newTitle}
+                                    className="py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest bg-red-600 text-white shadow-xl shadow-red-200"
+                                >
+                                    {isRenaming ? "Menyimpan..." : "Simpan"}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Move Modal */}
+            <AnimatePresence>
+                {showMoveModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[300] flex items-center justify-center p-4">
+                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl">
+                            <div className="p-10 space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Pindahkan {folderToMove ? "Folder" : "File"}</h2>
+                                    <button onClick={() => { setShowMoveModal(false); setFileToMove(null); setFolderToMove(null); }} className="p-3 hover:bg-gray-50 rounded-xl transition-all"><X className="h-5 w-5 text-gray-300" /></button>
+                                </div>
+                                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                    <button
+                                        onClick={() => handleMove(null)}
+                                        className="w-full flex items-center gap-4 bg-gray-50 p-4 rounded-2xl hover:bg-red-50 hover:border-red-100 border border-transparent transition-all group"
+                                    >
+                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                            <Archive className="h-5 w-5 text-gray-400 group-hover:text-red-600" />
+                                        </div>
+                                        <span className="text-xs font-black uppercase text-gray-700 group-hover:text-red-700">Arsip Utama (Root)</span>
+                                    </button>
+
+                                    {allPotentialFolders.map(folder => (
+                                        <button
+                                            key={folder.id}
+                                            onClick={() => handleMove(folder.id)}
+                                            disabled={isMoving || folder.id === currentFolderId || folder.id === folderToMove?.id}
+                                            className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all group ${(folder.id === currentFolderId || folder.id === folderToMove?.id) ? 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed' : 'bg-gray-50 border-transparent hover:bg-red-50 hover:border-red-100'}`}
+                                        >
+                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                                <Folder className={`h-5 w-5 ${(folder.id === currentFolderId || folder.id === folderToMove?.id) ? 'text-gray-300' : 'text-red-600 fill-red-600'}`} />
+                                            </div>
+                                            <div className="text-left flex-1 min-w-0">
+                                                <p className={`text-xs font-black uppercase truncate ${(folder.id === currentFolderId || folder.id === folderToMove?.id) ? 'text-gray-400' : 'text-gray-700 group-hover:text-red-700'}`}>{folder.name}</p>
+                                                <p className="text-[8px] font-bold text-gray-400 uppercase">{folder.id === currentFolderId ? 'Folder Saat Ini' : 'Folder'}</p>
+                                            </div>
+                                            {(folder.id === currentFolderId || folder.id === folderToMove?.id) && <CheckCircle2 className="h-4 w-4 text-gray-300" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Folder Info Modal */}
+            <AnimatePresence>
+                {folderInfoToShow && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4" onClick={() => setFolderInfoToShow(null)}>
+                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Informasi Folder</h2>
+                                <button onClick={() => setFolderInfoToShow(null)} className="p-3 hover:bg-gray-50 rounded-xl transition-all"><X className="h-5 w-5 text-gray-300" /></button>
+                            </div>
+
+                            <div className="flex justify-center mb-8">
+                                <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center shadow-lg shadow-red-50">
+                                    <Folder className="h-10 w-10 text-red-600 fill-red-600" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-2">Nama Folder</span>
+                                    <p className="text-lg font-black text-gray-900 tracking-tight uppercase">{folderInfoToShow.name}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-6 rounded-3xl">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-1">Total Isi</span>
+                                        <p className="text-xs font-black text-red-600 uppercase">
+                                            {folderInfoToShow._count?.resources || 0} File • {folderInfoToShow._count?.subFolders || 0} Sub
+                                        </p>
+                                    </div>
+                                    <div className="bg-gray-50 p-6 rounded-3xl">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-1">Dibuat</span>
+                                        <p className="text-xs font-black text-red-600 uppercase">
+                                            {new Date(folderInfoToShow.createdAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {folderInfoToShow.description && (
+                                    <div>
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-2">Keterangan</span>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase leading-relaxed">{folderInfoToShow.description}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={() => setFolderInfoToShow(null)}
+                                className="w-full mt-10 py-5 bg-gray-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                            >
+                                Tutup
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* File Info Modal */}
+            <AnimatePresence>
+                {fileInfoToShow && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4" onClick={() => setFileInfoToShow(null)}>
+                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Informasi File</h2>
+                                <button onClick={() => setFileInfoToShow(null)} className="p-3 hover:bg-gray-50 rounded-xl transition-all"><X className="h-5 w-5 text-gray-300" /></button>
+                            </div>
+
+                            <div className="flex justify-center mb-8">
+                                <div className="w-24 h-24 bg-gray-50 rounded-[2.5rem] flex items-center justify-center shadow-lg border border-gray-100 overflow-hidden">
+                                    {fileInfoToShow.thumbnail ? (
+                                        <img src={fileInfoToShow.thumbnail} alt={fileInfoToShow.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <FileText className="h-10 w-10 text-red-600" />
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-2">Nama Aset</span>
+                                    <p className="text-lg font-black text-gray-900 tracking-tight uppercase">{fileInfoToShow.title}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-6 rounded-3xl">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-1">Ukuran</span>
+                                        <p className="text-xs font-black text-red-600 uppercase">
+                                            {formatFileSize(fileInfoToShow.fileSize)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-gray-50 p-6 rounded-3xl">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-1">Dibuat</span>
+                                        <p className="text-xs font-black text-red-600 uppercase">
+                                            {formatDate(fileInfoToShow.createdAt)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 bg-gray-50 p-6 rounded-3xl">
+                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                        <User className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">Pengunggah</span>
+                                        <p className="text-xs font-bold text-gray-700 uppercase">{fileInfoToShow.author}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setFileInfoToShow(null)}
+                                className="w-full mt-10 py-5 bg-gray-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                            >
+                                Tutup
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Folder Permissions Modal */}
             <AnimatePresence>
                 {
@@ -1504,24 +1988,31 @@ export default function ArchivePage() {
 
 // --- Sub-components with Gallery Style Selection ---
 
-function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, onPreview, onDelete }: {
+function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, onPreview, onDelete, onRename, onMove, onCopy, onInfo, onDownload }: {
     file: ArchiveFile,
     selected: boolean,
     isCurrentActive: boolean,
     onSelect: () => void,
     onToggleSelect: (e: React.MouseEvent) => void,
     onPreview: () => void,
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void,
+    onRename: (file: ArchiveFile) => void,
+    onMove: (file: ArchiveFile) => void,
+    onCopy: (file: ArchiveFile) => void,
+    onInfo: (file: ArchiveFile) => void,
+    onDownload: (file: ArchiveFile) => void
 }) {
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
             onClick={onSelect}
-            className={`group relative aspect-square rounded-[2rem] overflow-hidden cursor-pointer transition-all duration-700 border ${selected ? "border-red-600 ring-4 ring-red-500/10 shadow-2xl scale-95" : isCurrentActive ? "border-red-400 shadow-lg" : "border-gray-100 hover:border-red-200 shadow-sm hover:shadow-md"
-                } bg-white`}
+            className={`group relative bg-white border rounded-[2rem] overflow-hidden transition-all duration-500 cursor-pointer ${selected ? "border-red-600 ring-4 ring-red-500/10 shadow-2xl scale-95" : isCurrentActive ? "border-red-400 shadow-lg" : "border-gray-100 hover:shadow-2xl hover:border-red-200"
+                }`}
         >
-            <div className="absolute inset-0 z-10 transition-transform duration-1000 group-hover:scale-110">
+            <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative">
                 {file.fileType === "DOCUMENT" ? (
                     <div className="w-full h-full bg-gradient-to-br from-slate-100 via-slate-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
                         {/* Decorative lines pattern */}
@@ -1535,7 +2026,7 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
 
                         {/* Document Icon with Badge */}
                         <div className="relative group-hover:scale-110 transition-transform duration-500">
-                            <div className="w-14 h-18 bg-white rounded-lg shadow-lg border border-slate-200/50 flex flex-col items-center justify-center relative overflow-hidden p-2">
+                            <div className="w-12 h-15 bg-white rounded-lg shadow-lg border border-slate-200/50 flex flex-col items-center justify-center relative overflow-hidden p-2">
                                 <div className="absolute top-0 right-0 w-4 h-4 bg-gradient-to-br from-slate-200 to-slate-100 rounded-bl-md" />
                                 <FileText className="h-6 w-6 text-red-500" strokeWidth={1.5} />
                             </div>
@@ -1544,75 +2035,118 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
                                 {file.title?.split('.').pop()?.toUpperCase().slice(0, 4) || 'DOC'}
                             </div>
                         </div>
-
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest text-center mt-4">Dokumen</p>
                     </div>
                 ) : (
-                    <img src={file.thumbnail || "/api/placeholder/400/300"} alt={file.title} className="w-full h-full object-cover" />
+                    <img src={file.thumbnail || "/api/placeholder/400/300"} alt={file.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 )}
-            </div>
 
-            {/* Selection Checkbox Overlay */}
-            <div className={`absolute top-4 left-4 z-[30] transition-all duration-300 ${selected ? "scale-100" : "scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100"}`}>
-                <button
-                    onClick={onToggleSelect}
-                    className={`w-9 h-9 rounded-2xl flex items-center justify-center border-2 transition-all ${selected ? "bg-red-600 border-red-600 text-white shadow-lg" : "bg-gray-900/40 border-white/40 text-white hover:bg-gray-900/60 backdrop-blur-md"
-                        }`}
-                >
-                    <Check className="h-5 w-5" strokeWidth={4} />
-                </button>
-            </div>
+                {/* Overlays on Image */}
+                <div className={`absolute top-3 left-3 z-[30] transition-all duration-300 ${selected ? "scale-100" : "scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100"}`}>
+                    <button
+                        onClick={onToggleSelect}
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center border-2 transition-all ${selected ? "bg-red-600 border-red-600 text-white shadow-lg" : "bg-gray-900/40 border-white/40 text-white hover:bg-gray-900/60 backdrop-blur-md"
+                            }`}
+                    >
+                        <Check className="h-4 w-4" strokeWidth={4} />
+                    </button>
+                </div>
 
-            {/* Preview Button */}
-            <div className="absolute top-4 right-4 z-[30]">
-                <button
-                    onClick={(e) => { e.stopPropagation(); onPreview(); }}
-                    className="w-9 h-9 rounded-2xl bg-gray-900/40 hover:bg-gray-900/60 border border-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all shadow-lg"
-                >
-                    <Eye className="h-4 w-4" />
-                </button>
-            </div>
-
-            {/* Bottom Info Bar - Always Visible with Glassmorphism */}
-            <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                <div className="relative p-5 pt-10">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="text-white/80">
-                            {file.fileType === "VIDEO" ? <Play className="h-3 w-3" fill="currentColor" /> :
-                                file.fileType === "IMAGE" ? <ImageIcon className="h-3 w-3" /> :
-                                    <FileText className="h-3 w-3" />}
-                        </div>
-                        <h3 className="text-[11px] font-black text-white uppercase truncate tracking-tight flex-1">
-                            {file.title}
-                        </h3>
-                    </div>
-                    <p className="text-[9px] font-black text-red-500 uppercase tracking-widest pl-5">
-                        {formatFileSizeHelper(file.fileSize)}
-                    </p>
+                <div className="absolute top-3 right-3 z-[30]">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onPreview(); }}
+                        className="w-8 h-8 rounded-xl bg-gray-900/40 hover:bg-gray-900/60 border border-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                    >
+                        <Eye className="h-4 w-4" />
+                    </button>
                 </div>
             </div>
 
-            {/* Three-dot menu */}
-            <div className="absolute top-4 left-14 z-[30] opacity-0 group-hover:opacity-100 transition-all">
-                <div className="relative group/filemenu">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="w-9 h-9 rounded-2xl bg-gray-900/40 hover:bg-gray-900/60 border border-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-lg transition-all"
-                    >
-                        <MoreVertical className="h-4 w-4" />
-                    </button>
-                    <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/filemenu:opacity-100 group-hover/filemenu:visible transition-all z-50 p-2">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(file.id);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Hapus File
-                        </button>
+            <div className="p-4">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="text-gray-400">
+                        {file.fileType === "VIDEO" ? <Play className="h-3 w-3" fill="currentColor" /> :
+                            file.fileType === "IMAGE" ? <ImageIcon className="h-3 w-3" /> :
+                                <FileText className="h-3 w-3" />}
+                    </div>
+                    <h3 className="text-xs font-black text-gray-900 truncate uppercase tracking-tight flex-1">{file.title}</h3>
+                </div>
+
+                <div className="flex items-center justify-between mt-3 gap-2">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase">
+                        {formatFileSizeHelper(file.fileSize)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                        <div className="relative group/filemenu">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); }}
+                                className="p-2 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-all"
+                            >
+                                <MoreVertical className="h-3 w-3" />
+                            </button>
+                            <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/filemenu:opacity-100 group-hover/filemenu:visible transition-all z-50 p-2 overflow-hidden">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onInfo(file);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                >
+                                    <Info className="h-4 w-4" />
+                                    View Information
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDownload(file);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRename(file);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                >
+                                    <Edit2 className="h-4 w-4" />
+                                    Rename
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCopy(file);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                >
+                                    <Copy className="h-4 w-4" />
+                                    Make a Copy
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onMove(file);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                >
+                                    <Move className="h-4 w-4" />
+                                    Move File
+                                </button>
+                                <div className="h-[1px] bg-gray-100 my-1 mx-2" />
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(file.id);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Hapus File
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1620,49 +2154,111 @@ function FileCard({ file, selected, isCurrentActive, onSelect, onToggleSelect, o
     );
 }
 
-function FileListItem({ file, selected, isCurrentActive, onSelect, onToggleSelect, onPreview, onDelete }: {
+
+function FileListItem({ file, selected, isCurrentActive, onSelect, onToggleSelect, onPreview, onDelete, onRename, onMove, onCopy, onInfo, onDownload }: {
     file: ArchiveFile,
     selected: boolean,
     isCurrentActive: boolean,
     onSelect: () => void,
     onToggleSelect: (e: React.MouseEvent) => void,
     onPreview: () => void,
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void,
+    onRename: (file: ArchiveFile) => void,
+    onMove: (file: ArchiveFile) => void,
+    onCopy: (file: ArchiveFile) => void,
+    onInfo: (file: ArchiveFile) => void,
+    onDownload: (file: ArchiveFile) => void
 }) {
     return (
         <motion.div
             layout
             onClick={onSelect}
-            className={`flex items-center gap-6 px-8 py-5 rounded-2xl cursor-pointer transition-all duration-300 border ${selected ? "bg-red-50 border-red-100 shadow-md translate-x-1" : isCurrentActive ? "bg-red-50/30 border-red-50 shadow-sm" : "bg-white border-gray-100 hover:border-red-100 shadow-sm hover:shadow-md"
+            className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 border ${selected ? "bg-red-50 border-red-100 shadow-md translate-x-1" : isCurrentActive ? "bg-red-50/30 border-red-50 shadow-sm" : "bg-white border-gray-100 hover:border-red-100 shadow-sm hover:shadow-md"
                 }`}
         >
             <div className="flex-shrink-0" onClick={onToggleSelect}>
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${selected ? "bg-red-600 border-red-600 text-white" : "border-gray-100 text-transparent hover:border-red-200"
+                <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all ${selected ? "bg-red-600 border-red-600 text-white" : "border-gray-100 text-transparent hover:border-red-200"
                     }`}>
                     <Check className="h-3 w-3" strokeWidth={4} />
                 </div>
             </div>
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
-                <img src={file.thumbnail || "/api/placeholder/100/100"} className="w-full h-full object-cover" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
+                {file.thumbnail ? (
+                    <img src={file.thumbnail} alt={file.title} className="w-full h-full object-cover" />
+                ) : (
+                    <Archive className="h-5 w-5 text-gray-300" />
+                )}
             </div>
             <div className="min-w-0 flex-1">
-                <h3 className={`text-xs font-black uppercase tracking-tight truncate ${selected ? "text-red-700 font-black" : "text-gray-900"}`}>{file.title}</h3>
-                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">Uploader: {file.author}</p>
+                <h3 className={`text-[11px] font-black uppercase tracking-tight truncate ${selected ? "text-red-700 font-black" : "text-gray-900"}`}>{file.title}</h3>
+                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                    {file.author} • {new Date(file.createdAt).toLocaleDateString()}
+                </p>
             </div>
-            <div className="text-[10px] font-bold text-gray-300 uppercase w-32 hidden md:block">{new Date(file.createdAt).toLocaleDateString()}</div>
             <div className="text-[10px] font-black text-gray-400 uppercase w-20 text-right">{formatFileSizeHelper(file.fileSize)}</div>
             <div className="flex items-center gap-2">
-                <button onClick={(e) => { e.stopPropagation(); onPreview(); }} className="p-2.5 hover:bg-white rounded-xl text-gray-400 hover:text-red-600 hover:shadow-sm transition-all"><Eye className="h-4 w-4" /></button>
-                <button onClick={(e) => { e.stopPropagation(); onDownload(file); }} className="p-2.5 hover:bg-white rounded-xl text-gray-400 hover:text-red-600 hover:shadow-sm transition-all"><Download className="h-4 w-4" /></button>
+                <button onClick={(e) => { e.stopPropagation(); onPreview(); }} className="p-2 bg-gray-50 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-600 transition-all"><Eye className="h-4 w-4" /></button>
+                <button onClick={(e) => { e.stopPropagation(); onDownload(file); }} className="p-2 bg-gray-50 hover:bg-emerald-50 rounded-xl text-gray-400 hover:text-emerald-600 transition-all"><Download className="h-4 w-4" /></button>
 
                 <div className="relative group/listmenu">
                     <button
                         onClick={(e) => { e.stopPropagation(); }}
-                        className="p-2.5 hover:bg-white rounded-xl text-gray-400 hover:text-red-600 hover:shadow-sm transition-all"
+                        className="p-2 bg-gray-50 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-600 transition-all"
                     >
                         <MoreVertical className="h-4 w-4" />
                     </button>
-                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/listmenu:opacity-100 group-hover/listmenu:visible transition-all z-50 p-2">
+                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/listmenu:opacity-100 group-hover/listmenu:visible transition-all z-50 p-2 overflow-hidden">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onInfo(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Info className="h-4 w-4" />
+                            View Information
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDownload(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Download className="h-4 w-4" />
+                            Download
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRename(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Edit2 className="h-4 w-4" />
+                            Rename
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onCopy(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Copy className="h-4 w-4" />
+                            Make a Copy
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onMove(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Move className="h-4 w-4" />
+                            Move File
+                        </button>
+                        <div className="h-[1px] bg-gray-100 my-1 mx-2" />
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -1680,9 +2276,7 @@ function FileListItem({ file, selected, isCurrentActive, onSelect, onToggleSelec
     );
 }
 
-function onDownload(file: any) {
-    window.open(file.fileUrl, '_blank');
-}
+
 
 // --- Upload Modal Component with Folder logic ---
 

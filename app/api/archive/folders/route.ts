@@ -26,11 +26,17 @@ export async function GET(request: Request) {
             return NextResponse.json({ folder });
         }
 
+        const all = searchParams.get("all") === "true";
+
         // Fetch multiple folders (either at root or inside another folder)
         const folders = await prisma.archiveFolder.findMany({
             where: {
                 uploaderId: uploaderId || undefined,
-                parentId: parentId === "null" ? null : (parentId || null) // Default to root if no parentId
+                ...(all ? {} :
+                    (parentId === "root" || parentId === "null" || !parentId)
+                        ? { OR: [{ parentId: null }, { parentId: "" }] }
+                        : { parentId }
+                )
             },
             include: {
                 _count: {
@@ -162,5 +168,32 @@ export async function DELETE(request: Request) {
     } catch (error: any) {
         console.error("❌ Folder Delete Error:", error);
         return NextResponse.json({ error: "Gagal menghapus folder." }, { status: 500 });
+    }
+}
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, name, parentId } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: "ID folder diperlukan." }, { status: 400 });
+        }
+
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (parentId !== undefined) updateData.parentId = parentId === "root" ? null : parentId;
+
+        const folder = await prisma.archiveFolder.update({
+            where: { id },
+            data: updateData
+        });
+
+        return NextResponse.json({
+            message: "Folder berhasil diperbarui",
+            folder
+        });
+    } catch (error: any) {
+        console.error("❌ Folder Update Error:", error);
+        return NextResponse.json({ error: "Gagal memperbarui folder." }, { status: 500 });
     }
 }
