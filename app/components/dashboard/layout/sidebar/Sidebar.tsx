@@ -208,7 +208,7 @@ const InternalSidebarLink = ({
 
 const staffMenuItems = [
     { label: "Dashboard Staff", icon: <LayoutDashboard className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/staff" },
-    { label: "Pengajuan Konten", icon: <FilePlus className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/staff/pengajuan" },
+    { label: "Instruksi", icon: <FilePlus className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/staff/pengajuan" },
     { label: "Arsip Konten", icon: <Archive className="h-5 w-5 flex-shrink-0" />, href: "/dashboard/staff/arsip" },
 ];
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
+import { cn } from "@/app/lib/utils";
 import {
     Search, Eye, Edit2, Trash2, Calendar, FileText,
     Plus, Lightbulb, ClipboardList, CheckCircle2,
@@ -12,6 +13,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Types
 interface Submission {
@@ -24,8 +27,11 @@ interface Submission {
     date: string;
     status: "PENDING" | "REVISION" | "APPROVED" | "REJECTED";
     source: "INSTRUKSI" | "INISIATIF";
+    instructionTitle?: string;
+    category?: string;
     notes?: string;
     fileUrl?: string;
+    thumbnail?: string;
 }
 
 interface InstructionTracking {
@@ -40,6 +46,7 @@ interface InstructionTracking {
     submission?: Submission | null;
     lastUpdate: string;
     thumbnail?: string;
+    contentType?: string;
 }
 
 export default function InstruksiManagementPage() {
@@ -77,7 +84,9 @@ function InstruksiContent() {
     // Modal States
     const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showRevisionModal, setShowRevisionModal] = useState(false);
     const [feedback, setFeedback] = useState("");
+    const [revisionDeadline, setRevisionDeadline] = useState<Date | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const modernToast = (type: "success" | "error" | "loading" | "info", title: string, description?: string) => {
@@ -136,13 +145,15 @@ function InstruksiContent() {
                 body: JSON.stringify({
                     id: selectedSubmission.id,
                     status,
-                    feedback
+                    feedback,
+                    newDeadline: status === "REVISION" ? revisionDeadline : null
                 })
             });
 
             if (res.ok) {
                 toast.dismiss(loadingId as string);
-                modernToast("success", "Review Selesai!", `Status pengajuan berhasil diubah menjadi ${status}.`);
+                modernToast("success", "Review Selesai!", `Pengajuan telah dikembalikan untuk revisi.`);
+                setShowRevisionModal(false);
                 setShowDetailModal(false);
                 fetchData();
             } else {
@@ -493,7 +504,7 @@ function InstruksiContent() {
                                                             <p className="font-bold text-gray-900 text-sm leading-none">{item.title}</p>
                                                             <div className="flex items-center gap-2">
                                                                 {getSourceLabel(item.source)}
-                                                                <span className="text-[11px] text-gray-400 font-medium">• {formatContentType(item.type)}</span>
+                                                                <span className="text-[11px] text-gray-400 font-bold">• {item.category || "PROMOSI"}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -556,10 +567,16 @@ function InstruksiContent() {
                                                                     {item.id}
                                                                 </span>
                                                             </div>
-                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${item.priority === 'HIGH' ? 'text-red-500' : item.priority === 'MEDIUM' ? 'text-orange-500' : 'text-blue-500'
-                                                                }`}>
-                                                                Priority: {item.priority}
-                                                            </span>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className={`text-[9px] font-black uppercase tracking-widest ${item.priority === 'HIGH' ? 'text-red-500' : item.priority === 'MEDIUM' ? 'text-orange-500' : 'text-blue-500'
+                                                                    }`}>
+                                                                    Priority: {item.priority}
+                                                                </span>
+                                                                <span className="text-gray-300 text-[10px]">•</span>
+                                                                <span className="text-[9px] font-black text-red-600 uppercase tracking-widest bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
+                                                                    {item.submission?.category || "PROMOSI"}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -725,7 +742,10 @@ function InstruksiContent() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setShowDetailModal(false)}
+                                    onClick={() => {
+                                        setShowDetailModal(false);
+                                        setShowRevisionModal(false);
+                                    }}
                                     className="p-3 hover:bg-red-50 rounded-full transition-all group"
                                 >
                                     <X className="h-6 w-6 text-gray-300 group-hover:text-red-600 group-hover:rotate-90 transition-all" />
@@ -736,8 +756,8 @@ function InstruksiContent() {
                                 {/* Info Grid */}
                                 <div className="grid grid-cols-2 gap-10 mb-10">
                                     <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Judul Materi</p>
-                                        <p className="text-xl font-black text-gray-900 leading-tight">{selectedSubmission.title}</p>
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em]">Judul Video Hasil Karya</p>
+                                        <p className="text-xl font-black text-gray-800 leading-tight">{selectedSubmission.title}</p>
                                     </div>
                                     <div className="space-y-3">
                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Dikirim Oleh</p>
@@ -763,13 +783,15 @@ function InstruksiContent() {
                                     {selectedSubmission.fileUrl && (
                                         <div className="space-y-4 pt-2">
                                             <div className="flex items-center justify-between">
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Hasil Video / Media Tugas</p>
-                                                <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-widest">{selectedSubmission.type}</span>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Hasil Video / Media Utama</p>
+                                                <span className="text-[9px] font-black bg-red-600 text-white px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
+                                                    {selectedSubmission.category || "PROMOSI"}
+                                                </span>
                                             </div>
 
                                             {/* Advanced Media Container */}
                                             <div className="relative group rounded-[2.5rem] overflow-hidden border-8 border-gray-50 shadow-2xl bg-black aspect-video flex items-center justify-center transition-transform hover:scale-[1.01] duration-500">
-                                                {selectedSubmission.fileUrl.match(/\.(mp4|webm|ogg)$/i) ? (
+                                                {selectedSubmission.fileUrl.match(/\.(mp4|webm|ogg)$/i) || selectedSubmission.fileUrl.includes('video/upload') ? (
                                                     <video
                                                         src={selectedSubmission.fileUrl}
                                                         controls
@@ -796,18 +818,37 @@ function InstruksiContent() {
                                         </div>
                                     )}
 
-                                    {/* Feedback Section */}
-                                    <div className="pt-6 border-t border-gray-100 space-y-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <MessageSquare className="h-4 w-4 text-red-600" />
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Berikan Feedback / Catatan</p>
+                                    {/* Thumbnail Preview Section */}
+                                    {selectedSubmission.thumbnail && (
+                                        <div className="space-y-4 pt-4 border-t border-gray-50">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Thumbnail Hasil Karya</p>
+                                            </div>
+                                            <div className="relative group aspect-video rounded-3xl overflow-hidden shadow-xl border-4 border-gray-50 max-w-md">
+                                                <img
+                                                    src={selectedSubmission.thumbnail}
+                                                    className="w-full h-full object-cover"
+                                                    alt="Submission Thumbnail"
+                                                />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <a
+                                                        href={selectedSubmission.thumbnail}
+                                                        target="_blank"
+                                                        className="bg-white text-gray-900 px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl"
+                                                    >
+                                                        Lihat Thumbnail
+                                                    </a>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <textarea
-                                            value={feedback}
-                                            onChange={(e) => setFeedback(e.target.value)}
-                                            placeholder="Tuliskan catatan revisi atau alasan penolakan di sini..."
-                                            className="w-full h-36 p-6 bg-white border-2 border-dashed border-gray-100 rounded-[2rem] text-sm font-medium focus:border-red-500 focus:bg-gray-50/30 transition-all resize-none placeholder:text-gray-300"
-                                        />
+                                    )}
+
+                                    {/* Description Section */}
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Deskripsi / Caption</p>
+                                        <div className="bg-gray-50/50 p-8 rounded-[2rem] border border-gray-100/50 italic text-gray-600 font-medium leading-relaxed">
+                                            &quot;{selectedSubmission.description || "Tidak ada deskripsi tambahan."}&quot;
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -827,11 +868,11 @@ function InstruksiContent() {
                                     // For OTHER statuses
                                     <div className="flex items-center gap-10">
                                         <button
-                                            onClick={() => handleUpdateStatus("REVISION")}
+                                            onClick={() => setShowRevisionModal(true)}
                                             disabled={isSubmitting}
                                             className="px-8 py-4 bg-orange-100 text-orange-700 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-orange-200 hover:-translate-y-1 transition-all disabled:opacity-50 active:scale-95"
                                         >
-                                            Revisi
+                                            Minta Revisi
                                         </button>
                                         <button
                                             onClick={() => handleUpdateStatus("APPROVED")}
@@ -843,6 +884,86 @@ function InstruksiContent() {
                                         </button>
                                     </div>
                                 )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Revision Pop-up Modal */}
+            <AnimatePresence>
+                {showRevisionModal && selectedSubmission && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowRevisionModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100"
+                        >
+                            <div className="bg-orange-50 px-10 py-8 border-b border-orange-100 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-200">
+                                        <Edit2 className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-gray-900 italic uppercase">Input Revisi</h3>
+                                        <p className="text-[10px] font-bold text-orange-600 tracking-widest uppercase">Berikan catatan dan tenggat waktu baru</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowRevisionModal(false)}
+                                    className="p-2 hover:bg-white rounded-full transition-all group"
+                                >
+                                    <X className="h-5 w-5 text-gray-400 group-hover:text-red-500" />
+                                </button>
+                            </div>
+
+                            <div className="p-10 space-y-8">
+                                {/* Deadline Selector */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-orange-500" />
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tenggat Waktu Baru</label>
+                                    </div>
+                                    <DatePicker
+                                        selected={revisionDeadline}
+                                        onChange={(date: Date | null) => setRevisionDeadline(date)}
+                                        minDate={new Date()}
+                                        dateFormat="dd MMMM yyyy"
+                                        placeholderText="Pilih tanggal deadline baru..."
+                                        className="w-full p-5 bg-gray-50 border-2 border-transparent focus:border-orange-500 focus:bg-white rounded-[1.5rem] text-sm font-black text-gray-900 transition-all cursor-pointer shadow-inner"
+                                    />
+                                </div>
+
+                                {/* Feedback Area */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <MessageSquare className="h-4 w-4 text-orange-500" />
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Revisi / Feedback</label>
+                                    </div>
+                                    <textarea
+                                        value={feedback}
+                                        onChange={(e) => setFeedback(e.target.value)}
+                                        placeholder="Tuliskan poin-poin yang perlu diperbaiki oleh staff creative..."
+                                        className="w-full h-40 p-6 bg-gray-50 border-2 border-transparent focus:border-orange-500 focus:bg-white rounded-[2rem] text-sm font-semibold transition-all resize-none shadow-inner placeholder:text-gray-300"
+                                    />
+                                </div>
+
+                                {/* Submit Button */}
+                                <button
+                                    onClick={() => handleUpdateStatus("REVISION")}
+                                    disabled={isSubmitting || !revisionDeadline || !feedback}
+                                    className="w-full py-5 bg-gray-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm hover:bg-orange-600 hover:shadow-xl hover:shadow-orange-100 transition-all transform hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:translate-y-0"
+                                >
+                                    {isSubmitting ? "MENGIRIM INSTRUKSI..." : "KIRIM REVISI SEKARANG"}
+                                </button>
                             </div>
                         </motion.div>
                     </div>

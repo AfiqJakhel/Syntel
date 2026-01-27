@@ -27,6 +27,8 @@ export async function GET() {
                         status: true,
                         updatedAt: true,
                         feedback: true,
+                        thumbnail: true,
+                        category: true,
                         author: {
                             select: {
                                 firstName: true,
@@ -69,9 +71,10 @@ export async function GET() {
             return {
                 id: inst.id,
                 title: inst.title,
+                contentType: inst.contentType,
                 // Accessing nested staff field from explicit join model
                 assignees: inst.assignees.map((a: any) => `${a.staff.firstName} ${a.staff.lastName}`),
-                thumbnail: inst.thumbnail,
+                thumbnail: inst.submission?.thumbnail || inst.thumbnail, // Prioritize submission thumbnail
                 deadline: inst.deadline.toISOString(),
                 priority: inst.priority,
                 status: statusLabel,
@@ -83,11 +86,14 @@ export async function GET() {
                     description: inst.submission.description,
                     type: inst.submission.contentType,
                     fileUrl: inst.submission.fileUrl,
+                    thumbnail: inst.submission.thumbnail,
                     author: `${inst.submission.author.firstName} ${inst.submission.author.lastName}`,
                     authorRole: inst.submission.author.role === "OFFICER" ? "Officer" : "Staff Creative",
                     date: inst.submission.updatedAt.toISOString(),
                     status: inst.submission.status,
                     source: "INSTRUKSI",
+                    instructionTitle: inst.title,
+                    category: inst.submission.category,
                     notes: inst.submission.feedback
                 } : null,
                 lastUpdate: inst.submission?.updatedAt.toISOString() || inst.createdAt.toISOString()

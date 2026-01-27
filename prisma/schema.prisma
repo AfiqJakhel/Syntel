@@ -97,6 +97,7 @@ model Submission {
   duration      Int?             // Video duration in seconds
   cloudinaryId  String?          // Cloudinary public_id for file management
   contentType   ContentType
+  category      String?          // e.g., KEGIATAN, PROMOSI
   status        SubmissionStatus @default(PENDING)
   feedback      String?          @db.Text
 

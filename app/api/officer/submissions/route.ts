@@ -13,6 +13,11 @@ export async function GET() {
                         lastName: true,
                         role: true,
                     }
+                },
+                instruction: {
+                    select: {
+                        title: true
+                    }
                 }
             },
             orderBy: { createdAt: "desc" },
@@ -22,14 +27,17 @@ export async function GET() {
         const mappedSubmissions = submissions.map((sub: any) => ({
             id: sub.id,
             title: sub.title,
+            instructionTitle: sub.instruction?.title || "INISIATIF STAFF",
             description: sub.description,
             type: sub.contentType,
             fileUrl: sub.fileUrl,
+            thumbnail: sub.thumbnail,
             author: `${sub.author.firstName} ${sub.author.lastName}`,
             authorRole: sub.author.role === "OFFICER" ? "Officer" : "Staff Creative",
             date: sub.createdAt.toISOString(),
             status: sub.status,
             source: sub.instructionId ? "INSTRUKSI" : "INISIATIF",
+            category: sub.category,
             notes: sub.feedback
         }));
 
@@ -41,7 +49,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
     try {
-        const { id, status, feedback } = await request.json();
+        const { id, status, feedback, newDeadline } = await request.json();
 
         if (!id || !status) {
             return NextResponse.json({ error: "ID and Status are required" }, { status: 400 });
@@ -65,6 +73,16 @@ export async function PATCH(request: Request) {
             }
         });
 
+        // If status is REVISION and newDeadline is provided, update the parent instruction deadline
+        if (status === "REVISION" && newDeadline && submission.instructionId) {
+            await prisma.instruction.update({
+                where: { id: submission.instructionId },
+                data: {
+                    deadline: new Date(newDeadline)
+                }
+            });
+        }
+
         // Trigger Notification for Staff
         let notifType: any = "SYSTEM";
         let notifTitle = "";
@@ -77,7 +95,10 @@ export async function PATCH(request: Request) {
         } else if (status === "REVISION") {
             notifType = "SUBMISSION_REVISION";
             notifTitle = "Revisi Diperlukan";
-            notifMessage = `Pengajuan '${submission.title}' memerlukan perbaikan. Cek catatan feedback: "${feedback || 'Tidak ada catatan'}"`;
+            const deadlineText = newDeadline
+                ? ` Deadline baru: ${new Date(newDeadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+                : "";
+            notifMessage = `Pengajuan '${submission.title}' memerlukan perbaikan.${deadlineText} Cek feedback: "${feedback || 'Tidak ada catatan'}"`;
         } else if (status === "REJECTED") {
             notifType = "SYSTEM";
             notifTitle = "Pengajuan Ditolak";
