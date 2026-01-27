@@ -59,7 +59,7 @@ const contentTypes = [
 export default function EditInstruksiPage() {
     const router = useRouter();
     const params = useParams();
-    const id = params.id as string;
+    const id = params?.id as string;
 
     const [title, setTitle] = useState("");
     const [contentType, setContentType] = useState("");
@@ -453,8 +453,8 @@ export default function EditInstruksiPage() {
                                             type="button"
                                             onClick={toggleSelectAll}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedAssignees.length === availableAssignees.length && availableAssignees.length > 0
-                                                    ? "bg-red-600 text-white shadow-lg shadow-red-200"
-                                                    : "bg-white border-2 border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600"
+                                                ? "bg-red-600 text-white shadow-lg shadow-red-200"
+                                                : "bg-white border-2 border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600"
                                                 }`}
                                         >
                                             {selectedAssignees.length === availableAssignees.length && availableAssignees.length > 0 ? (
