@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Filter } from "lucide-react";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
 import InstructionListItem from "./components/InstructionListItem";
@@ -21,14 +21,31 @@ interface Assignment {
 type TabType = "upcoming" | "pastdue" | "revision" | "inisiatif" | "completed";
 
 export default function PengajuanPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-red-600 border-t-transparent"></div>
+            </div>
+        }>
+            <PengajuanContent />
+        </Suspense>
+    );
+}
+
+function PengajuanContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabType>("upcoming");
     const [loading, setLoading] = useState(true);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
 
     useEffect(() => {
+        const tab = searchParams.get("tab") as TabType;
+        if (tab && ["upcoming", "pastdue", "revision", "inisiatif", "completed"].includes(tab)) {
+            setActiveTab(tab);
+        }
         fetchAssignments();
-    }, []);
+    }, [searchParams]);
 
     const fetchAssignments = async () => {
         try {

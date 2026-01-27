@@ -19,8 +19,13 @@ export async function POST(request: Request) {
 
         // Basic validation
         if (!title || !contentType || !authorId) {
+            const missing = [];
+            if (!title) missing.push("Judul");
+            if (!contentType) missing.push("Tipe Konten");
+            if (!authorId) missing.push("Penulis");
+
             return NextResponse.json(
-                { error: "Judul, tipe konten, dan penulis wajib diisi." },
+                { error: `Data berikut wajib diisi: ${missing.join(", ")}.` },
                 { status: 400 }
             );
         }

@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
-import { 
-    Calendar, ChevronRight, TrendingUp, Eye, Clock, 
+import {
+    Calendar, ChevronRight, TrendingUp, Eye, Clock,
     FileText, CheckCircle2, AlertCircle, Plus, Send,
     Video, Image as ImageIcon, UploadCloud, RefreshCw, X, MapPin
 } from "lucide-react";
@@ -226,15 +226,13 @@ export default function StaffDashboard() {
                 initial={{ opacity: 0, y: -20, scale: 0.95 }}
                 animate={{ opacity: t.visible ? 1 : 0, y: t.visible ? 0 : -20, scale: t.visible ? 1 : 0.95 }}
                 onClick={() => toast.dismiss(t.id)}
-                className={`max-w-md w-full border-2 p-5 rounded-[2rem] shadow-2xl backdrop-blur-md cursor-pointer transition-all ${
-                    type === 'success' ? 'bg-emerald-50/90 border-emerald-200' :
-                    type === 'error' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300' : 'bg-white/90 border-gray-100'
-                }`}
+                className={`max-w-md w-full border-2 p-5 rounded-[2rem] shadow-2xl backdrop-blur-md cursor-pointer transition-all ${type === 'success' ? 'bg-emerald-50/90 border-emerald-200' :
+                        type === 'error' ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300' : 'bg-white/90 border-gray-100'
+                    }`}
             >
                 <div className="flex items-center gap-4">
-                    <div className={`h-12 w-12 rounded-full flex items-center justify-center shadow-lg ${
-                        type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gray-800'
-                    }`}>
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center shadow-lg ${type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gray-800'
+                        }`}>
                         {type === 'success' ? <CheckCircle2 className="text-white" /> :
                             type === 'error' ? <X className="text-white" strokeWidth={3} /> :
                                 <RefreshCw className="text-white animate-spin" />}
@@ -329,7 +327,7 @@ export default function StaffDashboard() {
                     {/* Decorative Elements */}
                     <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-[100px] -mr-32 -mt-32" />
                     <div className="absolute bottom-0 left-0 w-56 h-56 bg-blue-500/5 rounded-full blur-[80px] -ml-28 -mb-28" />
-                    
+
                     <div className="relative z-10 px-6 sm:px-8 lg:px-10 py-6 sm:py-8 lg:py-10">
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                             {/* Left Side - Branding & Welcome */}
@@ -363,7 +361,7 @@ export default function StaffDashboard() {
                             </div>
 
                             {/* Right Side - Quick Stats */}
-                            <div className="flex flex-col items-start lg:items-end gap-3">                                
+                            <div className="flex flex-col items-start lg:items-end gap-3">
                                 {/* Quick Stats Preview */}
                                 <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50">
                                     <div className="flex items-center gap-1.5">
@@ -462,17 +460,16 @@ export default function StaffDashboard() {
                                     >
                                         {/* Status Label - Top Right */}
                                         <div className="absolute top-2 right-2 z-10">
-                                            <div className={`px-2 py-0.5 rounded-full ${
-                                                activity.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                                activity.status === 'REVISION' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                                                activity.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                                'bg-gray-100 text-gray-700 border border-gray-200'
-                                            }`}>
+                                            <div className={`px-2 py-0.5 rounded-full ${activity.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                    activity.status === 'REVISION' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
+                                                        activity.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                            'bg-gray-100 text-gray-700 border border-gray-200'
+                                                }`}>
                                                 <p className="text-[8px] font-bold uppercase">
                                                     {activity.status === 'PENDING' ? 'Pending' :
-                                                     activity.status === 'REVISION' ? 'Revisi' :
-                                                     activity.status === 'APPROVED' ? 'Disetujui' :
-                                                     activity.status}
+                                                        activity.status === 'REVISION' ? 'Revisi' :
+                                                            activity.status === 'APPROVED' ? 'Disetujui' :
+                                                                activity.status}
                                                 </p>
                                             </div>
                                         </div>
@@ -482,7 +479,7 @@ export default function StaffDashboard() {
                                             <div className={`h-9 w-9 ${activity.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
                                                 <span className="text-white font-black text-sm">{activity.avatar}</span>
                                             </div>
-                                            
+
                                             {/* Content */}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-bold text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors">
@@ -514,7 +511,7 @@ export default function StaffDashboard() {
 
                         {/* View All Button */}
                         <div className="mt-4 pt-4 border-t border-gray-100">
-                            <Link href="/dashboard/staff/pengajuan">
+                            <Link href="/dashboard/staff/pengajuan?tab=inisiatif">
                                 <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:from-red-700 hover:to-red-800 transition-all hover:shadow-lg group">
                                     <span>Lihat Semua Pengajuan</span>
                                     <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -547,12 +544,11 @@ export default function StaffDashboard() {
                                     >
                                         <div className="flex items-start gap-2.5">
                                             {/* Status Indicator */}
-                                            <div className={`mt-1 h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-                                                deadline.status === 'Pending' ? 'bg-amber-500' :
-                                                deadline.status === 'Menunggu Review' ? 'bg-blue-500' :
-                                                'bg-orange-500'
-                                            }`} />
-                                            
+                                            <div className={`mt-1 h-1.5 w-1.5 rounded-full flex-shrink-0 ${deadline.status === 'Pending' ? 'bg-amber-500' :
+                                                    deadline.status === 'Menunggu Review' ? 'bg-blue-500' :
+                                                        'bg-orange-500'
+                                                }`} />
+
                                             {/* Content */}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-bold text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors">
@@ -563,11 +559,10 @@ export default function StaffDashboard() {
                                                         <Calendar className="h-3 w-3 text-gray-400" />
                                                         <p className="text-[10px] font-semibold text-gray-600">{deadline.date}</p>
                                                     </div>
-                                                    <div className={`px-1.5 py-0.5 rounded-full ${
-                                                        deadline.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                                                        deadline.status === 'Menunggu Review' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-orange-100 text-orange-700'
-                                                    }`}>
+                                                    <div className={`px-1.5 py-0.5 rounded-full ${deadline.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
+                                                            deadline.status === 'Menunggu Review' ? 'bg-blue-100 text-blue-700' :
+                                                                'bg-orange-100 text-orange-700'
+                                                        }`}>
                                                         <p className="text-[8px] font-bold uppercase">{deadline.status}</p>
                                                     </div>
                                                 </div>
@@ -588,7 +583,7 @@ export default function StaffDashboard() {
 
                         {/* View All Button */}
                         <div className="mt-4 pt-4 border-t border-gray-100">
-                            <Link href="/dashboard/staff/instruksi">
+                            <Link href="/dashboard/staff/pengajuan?tab=upcoming">
                                 <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:from-red-700 hover:to-red-800 transition-all hover:shadow-lg group">
                                     <span>Lihat Semua Instruksi</span>
                                     <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -825,13 +820,12 @@ export default function StaffDashboard() {
                                             <Clock className="h-3 w-3" />
                                             <span className="text-xs font-black">{deadline.date}</span>
                                         </div>
-                                        <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm border ${
-                                            deadline.status === "Pending"
+                                        <span className={`inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm border ${deadline.status === "Pending"
                                                 ? "bg-gray-50 text-gray-500 border-gray-100"
                                                 : deadline.status === "Menunggu Review"
                                                     ? "bg-orange-50 text-orange-600 border-orange-100"
                                                     : "bg-red-50 text-red-600 border-red-100"
-                                        }`}>
+                                            }`}>
                                             {deadline.status}
                                         </span>
                                     </div>
@@ -877,17 +871,15 @@ export default function StaffDashboard() {
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2">
                                             <div className="flex h-4 w-4 items-center justify-center">
-                                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                                                    activity.status === "PENDING" ? "bg-emerald-500" :
-                                                    activity.status === "REVISION" ? "bg-orange-500" :
-                                                    activity.status === "APPROVED" ? "bg-blue-500" : "bg-gray-500"
-                                                }`}></span>
+                                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${activity.status === "PENDING" ? "bg-emerald-500" :
+                                                        activity.status === "REVISION" ? "bg-orange-500" :
+                                                            activity.status === "APPROVED" ? "bg-blue-500" : "bg-gray-500"
+                                                    }`}></span>
                                             </div>
-                                            <p className={`text-[10px] font-black uppercase tracking-widest ${
-                                                activity.status === "PENDING" ? "text-emerald-600" :
-                                                activity.status === "REVISION" ? "text-orange-600" :
-                                                activity.status === "APPROVED" ? "text-blue-600" : "text-gray-600"
-                                            }`}>
+                                            <p className={`text-[10px] font-black uppercase tracking-widest ${activity.status === "PENDING" ? "text-emerald-600" :
+                                                    activity.status === "REVISION" ? "text-orange-600" :
+                                                        activity.status === "APPROVED" ? "text-blue-600" : "text-gray-600"
+                                                }`}>
                                                 {activity.action}
                                             </p>
                                         </div>
@@ -988,9 +980,8 @@ export default function StaffDashboard() {
                                             />
                                             <label
                                                 htmlFor="staff-upload"
-                                                className={`flex items-center justify-between px-8 py-4 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
-                                                    fileUrl ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-red-300 hover:bg-red-50'
-                                                }`}
+                                                className={`flex items-center justify-between px-8 py-4 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${fileUrl ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-red-300 hover:bg-red-50'
+                                                    }`}
                                             >
                                                 <span className="text-sm font-bold truncate pr-4">
                                                     {isUploading ? "Mengunggah..." : fileUrl ? "File Terunggah ✓" : "Pilih Foto/Video"}

@@ -326,6 +326,7 @@ async function main() {
             description: "Buat carousel Instagram untuk promo paket data awal tahun.",
             deadline: new Date("2026-02-01"),
             priority: "HIGH" as Priority,
+            contentType: "INSTAGRAM_CAROUSEL" as ContentType,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -344,6 +345,7 @@ async function main() {
             description: "Dokumentasikan suasana kantor untuk konten TikTok/Reels.",
             deadline: new Date("2026-01-25"),
             priority: "MEDIUM" as Priority,
+            contentType: "INSTAGRAM_REELS" as ContentType,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -361,6 +363,7 @@ async function main() {
             description: "Visualisasikan pencapaian tim selama kuartal terakhir.",
             deadline: new Date("2026-01-30"),
             priority: "LOW" as Priority,
+            contentType: "YOUTUBE_VIDEO" as ContentType,
             issuerId: officerAhmad,
             assignees: {
                 create: [
@@ -515,6 +518,7 @@ async function main() {
                     : `Pengerjaan mendesak untuk tugas nomor ${i} yang harus segera diselesaikan.`,
                 deadline: deadlineDate,
                 priority: (i <= 10 ? "HIGH" : (i % 2 === 0 ? "MEDIUM" : "LOW")) as Priority,
+                contentType: contentTypes[i % contentTypes.length] as ContentType,
                 issuerId: officerAhmad,
                 assignees: {
                     create: assigneesToCreate

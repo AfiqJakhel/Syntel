@@ -34,11 +34,10 @@ export async function GET(req: Request) {
             };
         }
 
-        // Total independent submissions (manual/inisiatif) by this staff member
+        // Total submissions (both initiatives and instruction-based) by this staff member
         const totalSubmissions = await prisma.submission.count({
             where: {
-                authorId,
-                instructionId: null
+                authorId
             }
         });
 
@@ -67,28 +66,29 @@ export async function GET(req: Request) {
                     deadline: {
                         gte: now
                     },
-                    NOT: {
-                        submission: {
-                            status: 'APPROVED'
-                        }
-                    }
+                    submission: null
                 }
             }
         });
 
-        // Recent manual submissions by this staff member
+        // Recent activities by this staff member (both initiatives and instruction-based)
         const recentActivities = await prisma.submission.findMany({
             where: {
-                authorId,
-                instructionId: null
+                authorId
             },
-            take: 5,
+            take: 10, // Increase count for better history
             orderBy: { updatedAt: 'desc' },
             include: {
                 author: {
                     select: {
                         firstName: true,
                         lastName: true
+                    }
+                },
+                instruction: {
+                    select: {
+                        id: true,
+                        title: true
                     }
                 }
             }
@@ -97,10 +97,23 @@ export async function GET(req: Request) {
         const activityColors = ["bg-blue-500", "bg-purple-500", "bg-red-500", "bg-emerald-500", "bg-orange-500"];
 
         const activities = recentActivities.map((sub: any, index: number) => {
-            let actionLabel = "mengirim pengajuan";
-            if (sub.status === "PENDING") actionLabel = "mengunggah pengajuan";
-            else if (sub.status === "REVISION") actionLabel = "mengajukan revisi";
-            else if (sub.status === "APPROVED") actionLabel = "menyelesaikan pengajuan";
+            const isInitiative = !sub.instructionId;
+            const isUpdate = sub.createdAt.getTime() !== sub.updatedAt.getTime();
+            let actionLabel = "";
+
+            if (sub.status === "PENDING") {
+                if (isUpdate) {
+                    actionLabel = "upload revisi";
+                } else {
+                    actionLabel = isInitiative ? "membuat pengajuan" : "submit tugas";
+                }
+            } else if (sub.status === "REVISION") {
+                actionLabel = "perlu revisi";
+            } else if (sub.status === "APPROVED") {
+                actionLabel = "disetujui";
+            } else if (sub.status === "REJECTED") {
+                actionLabel = "ditolak";
+            }
 
             return {
                 id: sub.id,
@@ -122,11 +135,7 @@ export async function GET(req: Request) {
                     deadline: {
                         gte: now
                     },
-                    NOT: {
-                        submission: {
-                            status: 'APPROVED'
-                        }
-                    }
+                    submission: null
                 }
             },
             take: 6,
