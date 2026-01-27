@@ -109,8 +109,12 @@ const MobileSidebar = ({
                 {...props}
             >
                 <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white font-black text-lg shadow-lg shadow-red-200">
-                        S
+                    <div className="flex h-8 w-8 items-center justify-center">
+                        <img
+                            src="/logo-telkom.png"
+                            alt="Telkom Logo"
+                            className="h-12 md:h-16 w-auto object-contain"
+                        />  
                     </div>
                     <span className="text-lg font-black tracking-tight text-gray-900">Syntel</span>
                 </div>
@@ -149,8 +153,12 @@ const MobileSidebar = ({
                         >
                             <div className="flex items-center justify-between mb-10">
                                 <div className="flex items-center gap-2">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white font-black text-xl">
-                                        S
+                                    <div className="flex h-10 w-10 items-center justify-center">
+                                    <img
+                                        src="/logo-telkom.png"
+                                        alt="Telkom Logo"
+                                        className="h-12 md:h-16 w-auto object-contain"
+                                    />    
                                     </div>
                                     <span className="text-2xl font-black tracking-tight text-gray-900">Syntel</span>
                                 </div>
@@ -185,7 +193,8 @@ const InternalSidebarLink = ({
         <Link
             href={link.href}
             className={cn(
-                "flex items-center justify-start gap-2 group/sidebar py-2 px-2 rounded-xl transition-colors hover:bg-gray-50",
+                "flex items-center gap-2 group/sidebar py-2 px-2 rounded-xl transition-colors hover:bg-gray-50",
+                open ? "justify-start" : "justify-center",
                 className
             )}
             {...props}
@@ -257,8 +266,12 @@ export function Sidebar({ role = "STAFF" }: { role?: "STAFF" | "OFFICER" }) {
                     {open ? (
                         <div className="mb-10 px-2 flex items-center justify-between">
                             <Link href="/dashboard/officer" className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-xl">
-                                    S
+                                <div className="flex h-12 w-12  items-center justify-center">
+                                    <img
+                                        src="/logo-telkom.png"
+                                        alt="Telkom Logo"
+                                        className="h-12 md:h-16 w-auto object-contain"
+                                    />
                                 </div>
                                 <span className="text-xl font-bold tracking-tight text-gray-900">Syntel</span>
                             </Link>
@@ -271,8 +284,12 @@ export function Sidebar({ role = "STAFF" }: { role?: "STAFF" | "OFFICER" }) {
                         </div>
                     ) : (
                         <div className="mb-10 flex justify-center">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-xl">
-                                S
+                            <div className="flex h-12 w-12 items-center justify-center">
+                                <img
+                                    src="/logo-telkom.png"
+                                    alt="Telkom Logo"
+                                    className="h-12 w-12 object-contain"
+                                />
                             </div>
                         </div>
                     )}

@@ -11,8 +11,14 @@ export default function Footer() {
             {/* Left Side: Brand & Copyright */}
             <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
               <div className="flex items-center gap-3 group cursor-pointer">
-                <div className="relative h-8 w-8 rounded-xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shadow-lg shadow-red-200 group-hover:scale-110 transition-transform duration-500">
-                  <span className="text-[10px] font-black text-white italic">S</span>
+                <div className="relative h-12 w-12 rounded-xl  flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                  <span className="text-[10px] font-black text-white italic">
+                      <img  
+                        src="/logo-telkom.png"
+                        alt="Telkom Logo"                  
+                        className="h-12 md:h-16 w-auto object-contain"                  
+                      />                
+                  </span>
                   <div className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <div className="flex flex-col">

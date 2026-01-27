@@ -14,6 +14,8 @@ import { ResumableUploadModal } from "@/app/components/upload/ResumableUploadMod
 import { toast } from "react-hot-toast";
 
 // Types (sama dengan officer)
+type ArchiveTab = "FINISHED" | "RAW";
+
 interface ArchiveFolder {
     id: string;
     name: string;
@@ -36,11 +38,23 @@ interface ArchiveFile {
     cloudinaryId?: string | null;
     folderId: string | null;
     folderName?: string | null;
+    contentType: string;
     fileType: "VIDEO" | "IMAGE" | "DOCUMENT";
     author: string;
     createdAt: string;
     updatedAt: string;
 }
+
+const contentTypeLabels: Record<string, string> = {
+    INSTAGRAM_POST: "Instagram Post",
+    INSTAGRAM_CAROUSEL: "Instagram Carousel",
+    INSTAGRAM_REELS: "Instagram Reels",
+    INSTAGRAM_STORY: "Instagram Story",
+    TIKTOK_POST: "TikTok Post",
+    YOUTUBE_VIDEO: "YouTube Video",
+    POSTER: "Poster",
+    DOKUMEN_INTERNAL: "Dokumen Internal",
+};
 
 // Helper untuk check permission
 async function checkFolderPermission(_folderId: string | null, staffNip: string): Promise<boolean> {
@@ -65,6 +79,15 @@ async function checkFolderPermission(_folderId: string | null, staffNip: string)
 export default function StaffArchivePage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+
+    // Active tab with localStorage persistence
+    const [activeTab, setActiveTab] = useState<ArchiveTab>(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("staffArchiveActiveTab");
+            return (saved === "RAW" || saved === "FINISHED") ? saved as ArchiveTab : "RAW";
+        }
+        return "RAW";
+    });
 
     // Current user
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -99,6 +122,13 @@ export default function StaffArchivePage() {
         }
     }, []);
 
+    // Save activeTab to localStorage whenever it changes
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("staffArchiveActiveTab", activeTab);
+        }
+    }, [activeTab]);
+
     // Check permission untuk folder saat ini
     useEffect(() => {
         const checkPermission = async () => {
@@ -118,10 +148,20 @@ export default function StaffArchivePage() {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const [foldersRes, filesRes] = await Promise.all([
-                    fetch(`/api/archive/folders?parentId=${currentFolderId || "null"}`),
-                    fetch(`/api/archive/resources?folderId=${currentFolderId || "root"}&page=1&limit=100`)
-                ]);
+                // Build API endpoint based on active tab
+                const apiEndpoint = activeTab === "FINISHED" ? "/api/archive" : "/api/archive/resources";
+                const params = new URLSearchParams({
+                    page: "1",
+                    limit: "100",
+                    ...(activeTab === "RAW" && { folderId: currentFolderId || "root" }),
+                });
+
+                const fetchPromises = [
+                    activeTab === "RAW" ? fetch(`/api/archive/folders?parentId=${currentFolderId || "null"}`) : Promise.resolve({ json: async () => ({ folders: [] }) }),
+                    fetch(`${apiEndpoint}?${params}`)
+                ];
+
+                const [foldersRes, filesRes] = await Promise.all(fetchPromises);
 
                 const foldersData = await foldersRes.json();
                 const filesData = await filesRes.json();
@@ -137,7 +177,7 @@ export default function StaffArchivePage() {
         };
 
         fetchData();
-    }, [currentFolderId]);
+    }, [currentFolderId, activeTab]);
 
     // Navigate to folder
     const navigateToFolder = (folderId: string) => {
@@ -211,22 +251,46 @@ export default function StaffArchivePage() {
                             )}
                         </div>
 
-                        {/* Permission indicator */}
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold ${hasFullAccess
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
-                            }`}>
-                            {hasFullAccess ? (
-                                <>
-                                    <Shield className="h-4 w-4" />
-                                    {currentFolderId ? "Full Access - Anda bisa upload, edit, dan hapus" : "Akses Utama - Anda bisa upload ke root"}
-                                </>
-                            ) : (
-                                <>
-                                    <Eye className="h-4 w-4" />
-                                    View Only - Anda hanya bisa melihat
-                                </>
-                            )}
+                        {/* Tab Navigation & Permission Indicator */}
+                        <div className="flex items-center justify-between mb-6">
+                            {/* Permission indicator */}
+                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold ${hasFullAccess
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-blue-50 text-blue-700 border border-blue-200"
+                                }`}>
+                                {hasFullAccess ? (
+                                    <>
+                                        <Shield className="h-4 w-4" />
+                                        {currentFolderId ? "Full Access - Anda bisa upload, edit, dan hapus" : "Akses Utama - Anda bisa upload ke root"}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Eye className="h-4 w-4" />
+                                        View Only - Anda hanya bisa melihat
+                                    </>
+                                )}
+                            </div>
+                            {/* Tab Navigation */}
+                            <div className="bg-gray-50/80 p-1.5 rounded-[2rem] flex items-center gap-1 border border-gray-100 shadow-sm backdrop-blur-sm">
+                                <button
+                                    onClick={() => { setActiveTab("RAW"); }}
+                                    className={`px-8 py-3.5 rounded-[1.7rem] text-xs font-black uppercase tracking-widest transition-all ${activeTab === "RAW"
+                                        ? "bg-white text-red-600 shadow-xl shadow-red-500/10 border border-red-50"
+                                        : "text-gray-400 hover:text-gray-600"
+                                        }`}
+                                >
+                                    Dokumentasi
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("FINISHED")}
+                                    className={`px-8 py-3.5 rounded-[1.7rem] text-xs font-black uppercase tracking-widest transition-all ${activeTab === "FINISHED"
+                                        ? "bg-white text-red-600 shadow-xl shadow-red-500/10 border border-red-50"
+                                        : "text-gray-400 hover:text-gray-600"
+                                        }`}
+                                >
+                                    Hasil Konten
+                                </button>
+                            </div>
                         </div>
 
                         {/* Search & View Mode */}
@@ -266,7 +330,7 @@ export default function StaffArchivePage() {
                         </div>
 
                         {/* Breadcrumbs */}
-                        {currentFolderId && (
+                        {activeTab === "RAW" && currentFolderId && (
                             <div className="flex items-center gap-2 mt-4">
                                 <button
                                     onClick={navigateBack}
@@ -288,7 +352,7 @@ export default function StaffArchivePage() {
                     ) : (
                         <>
                             {/* Folders */}
-                            {filteredFolders.length > 0 && (
+                            {activeTab === "RAW" && filteredFolders.length > 0 && (
                                 <div className="mb-12">
                                     <div className="flex items-center gap-3 mb-6">
                                         <FolderPlus className="h-4 w-4 text-red-600" />
