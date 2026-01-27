@@ -31,6 +31,7 @@ model User {
   notifications        Notification[] @relation("UserNotifications")
   uploadedResources    ArchiveResource[] @relation("UploadedResources")
   uploadedFolders      ArchiveFolder[]   @relation("UploadedFolders")
+  folderPermissions    ArchiveFolderPermission[] @relation("FolderPermissions")
 
   @@map("users")
 }
@@ -175,6 +176,11 @@ model Notification {
   @@map("notifications")
 }
 
+enum ArchivePermissionLevel {
+  VIEW_ONLY
+  FULL_ACCESS
+}
+
 model ArchiveFolder {
   id           String            @id @default(cuid())
   name         String
@@ -188,6 +194,8 @@ model ArchiveFolder {
   subFolders   ArchiveFolder[]   @relation("SubFolders")
   
   resources    ArchiveResource[]
+  permissions  ArchiveFolderPermission[]
+  
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -215,4 +223,22 @@ model ArchiveResource {
   updatedAt    DateTime    @updatedAt
 
   @@map("archive_resources")
+}
+
+model ArchiveFolderPermission {
+  id            String                  @id @default(cuid())
+  folderId      String
+  folder        ArchiveFolder           @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  
+  staffNip      String
+  staff         User                    @relation("FolderPermissions", fields: [staffNip], references: [nip], onDelete: Cascade)
+  
+  accessLevel   ArchivePermissionLevel  @default(VIEW_ONLY)
+  grantedById   String                  // Officer who granted the permission
+  grantedAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([folderId, staffNip])
+  @@index([staffNip])
+  @@map("archive_folder_permissions")
 }
