@@ -33,7 +33,23 @@ export async function GET(request: Request) {
                 parentId: parentId === "null" ? null : (parentId || null) // Default to root if no parentId
             },
             include: {
-                _count: true
+                _count: {
+                    select: {
+                        resources: true,
+                        subFolders: true
+                    }
+                },
+                permissions: {
+                    include: {
+                        staff: {
+                            select: {
+                                nip: true,
+                                firstName: true,
+                                lastName: true
+                            }
+                        }
+                    }
+                }
             },
             orderBy: { createdAt: "desc" }
         });
