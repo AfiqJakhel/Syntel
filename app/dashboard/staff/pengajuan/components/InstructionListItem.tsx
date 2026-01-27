@@ -62,15 +62,6 @@ export default function InstructionListItem({
                     {title}
                 </h4>
                 <div className="flex items-center mt-0.5 gap-2 flex-wrap">
-                    <p
-                        className={cn(
-                            "text-[11px] font-bold uppercase tracking-wider",
-                            isPastDue ? "text-red-500" : "text-gray-400"
-                        )}
-                    >
-                        Due at {dueTime}
-                    </p>
-                    <span className="text-gray-300">•</span>
                     <p className="text-[11px] font-medium text-gray-500">{category}</p>
                     <span className="text-gray-300">•</span>
                     <p className="text-[11px] font-medium text-gray-400 italic">By {issuer}</p>

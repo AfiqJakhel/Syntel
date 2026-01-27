@@ -34,31 +34,35 @@ export async function GET(req: Request) {
             };
         }
 
-        // Total submissions by this staff member
+        // Total independent submissions (manual/inisiatif) by this staff member
         const totalSubmissions = await prisma.submission.count({
-            where: { authorId }
-        });
-
-        // Pending submissions (awaiting review)
-        const totalPending = await prisma.submission.count({
-            where: { 
+            where: {
                 authorId,
-                status: 'PENDING' 
+                instructionId: null
             }
         });
 
-        // Approved submissions (archived/completed)
-        const totalApproved = await prisma.submission.count({
-            where: { 
+        // Pending manual submissions
+        const totalPending = await prisma.submission.count({
+            where: {
                 authorId,
-                status: 'APPROVED' 
+                status: 'PENDING',
+                instructionId: null
+            }
+        });
+
+        // Approved submissions by this staff member (including initiatives and instruction-based)
+        const totalApproved = await prisma.submission.count({
+            where: {
+                authorId,
+                status: 'APPROVED'
             }
         });
 
         // Active tasks assigned to this staff member
-        const activeTasks = await prisma.instructionAssignment.count({
+        const activeTasks = await prisma.instructionAssignee.count({
             where: {
-                staffId: authorId,
+                staffNip: authorId,
                 instruction: {
                     deadline: {
                         gte: now
@@ -72,9 +76,12 @@ export async function GET(req: Request) {
             }
         });
 
-        // Recent submissions by this staff member
+        // Recent manual submissions by this staff member
         const recentActivities = await prisma.submission.findMany({
-            where: { authorId },
+            where: {
+                authorId,
+                instructionId: null
+            },
             take: 5,
             orderBy: { updatedAt: 'desc' },
             include: {
@@ -108,9 +115,9 @@ export async function GET(req: Request) {
         });
 
         // Upcoming instructions/tasks for this staff member
-        const upcomingInstructions = await prisma.instructionAssignment.findMany({
+        const upcomingInstructions = await prisma.instructionAssignee.findMany({
             where: {
-                staffId: authorId,
+                staffNip: authorId,
                 instruction: {
                     deadline: {
                         gte: now
@@ -123,7 +130,7 @@ export async function GET(req: Request) {
                 }
             },
             take: 6,
-            orderBy: { 
+            orderBy: {
                 instruction: {
                     deadline: 'asc'
                 }

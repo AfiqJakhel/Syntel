@@ -15,9 +15,10 @@ interface Assignment {
     dueDate: Date;
     status: "pending" | "revision" | "approved" | "completed" | "rejected";
     isSubmitted: boolean;
+    source: "INSTRUKSI" | "INISIATIF";
 }
 
-type TabType = "upcoming" | "pastdue" | "revision" | "completed";
+type TabType = "upcoming" | "pastdue" | "revision" | "inisiatif" | "completed";
 
 export default function PengajuanPage() {
     const router = useRouter();
@@ -49,7 +50,8 @@ export default function PengajuanPage() {
                 issuer: item.issuer,
                 dueDate: new Date(item.deadline),
                 status: item.status.toLowerCase() as any, // PENDING, REVISION, APPROVED, REJECTED
-                isSubmitted: item.isSubmitted
+                isSubmitted: item.isSubmitted,
+                source: item.source
             }));
 
             setAssignments(mappedData);
@@ -65,10 +67,13 @@ export default function PengajuanPage() {
     const filteredAssignments = assignments
         .filter((sub) => {
             if (activeTab === "completed") {
-                return sub.isSubmitted && sub.status !== "revision";
+                return sub.isSubmitted && sub.status !== "revision" && sub.source !== "INISIATIF";
             }
             if (activeTab === "revision") {
                 return sub.status === "revision";
+            }
+            if (activeTab === "inisiatif") {
+                return sub.source === "INISIATIF";
             }
 
             const isPast = sub.dueDate < now;
@@ -122,7 +127,7 @@ export default function PengajuanPage() {
 
                         {/* Tabs */}
                         <div className="flex items-center gap-1">
-                            {(["upcoming", "pastdue", "revision", "completed"] as TabType[]).map((tab) => (
+                            {(["upcoming", "pastdue", "revision", "inisiatif", "completed"] as TabType[]).map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -133,7 +138,7 @@ export default function PengajuanPage() {
                                             : "text-gray-400 hover:text-gray-900 hover:bg-white"
                                     )}
                                 >
-                                    {tab === "pastdue" ? "Past Due" : tab}
+                                    {tab === "pastdue" ? "Past Due" : tab === "inisiatif" ? "Inisiatif" : tab}
                                 </button>
                             ))}
                         </div>
@@ -193,7 +198,7 @@ export default function PengajuanPage() {
                                                 minute: "2-digit",
                                             })}
                                             isPastDue={activeTab === "pastdue"}
-                                            isCompleted={activeTab === "completed"}
+                                            isCompleted={activeTab === "completed" || activeTab === "inisiatif"}
                                             isRevision={activeTab === "revision"}
                                             reviewStatus={sub.status}
                                         />
