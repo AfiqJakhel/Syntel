@@ -7,6 +7,17 @@ import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayo
 import { cn } from "@/app/lib/utils";
 import toast from "react-hot-toast";
 
+const contentTypes = [
+    { value: "INSTAGRAM_POST", label: "Instagram Post" },
+    { value: "INSTAGRAM_CAROUSEL", label: "Instagram Carousel" },
+    { value: "INSTAGRAM_REELS", label: "Instagram Reels" },
+    { value: "INSTAGRAM_STORY", label: "Instagram Story" },
+    { value: "TIKTOK_POST", label: "TikTok Post" },
+    { value: "YOUTUBE_VIDEO", label: "YouTube Video" },
+    { value: "POSTER", label: "Poster" },
+    { value: "DOKUMEN_INTERNAL", label: "Dokumen Internal" },
+];
+
 interface Assignee {
     nip: string;
     name: string;
@@ -56,6 +67,7 @@ export default function AssignmentDetailPage() {
     const [submissionTitle, setSubmissionTitle] = useState("");
     const [submissionDescription, setSubmissionDescription] = useState("");
     const [category, setCategory] = useState<"PROMOSI" | "KEGIATAN">("PROMOSI");
+    const [selectedContentType, setSelectedContentType] = useState("");
     const [isDraggingContent, setIsDraggingContent] = useState(false);
     const [isDraggingThumbnail, setIsDraggingThumbnail] = useState(false);
 
@@ -77,8 +89,10 @@ export default function AssignmentDetailPage() {
                 if (data.submission.category) setCategory(data.submission.category as any);
                 setPreviewUrl(data.submission.fileUrl || null);
                 setThumbnailPreview(data.submission.thumbnail || null);
+                if (data.submission.contentType) setSelectedContentType(data.submission.contentType);
             } else {
                 setSubmissionTitle(data.title);
+                if (data.contentType) setSelectedContentType(data.contentType);
             }
 
             setLoading(false);
@@ -245,7 +259,7 @@ export default function AssignmentDetailPage() {
                     thumbnail: finalThumbnailUrl || null,
                     fileSize: selectedFile ? selectedFile.size : 0, // Fallback to 0 if keeping existing
                     cloudinaryId: finalPublicId || null,
-                    contentType: detail?.contentType,
+                    contentType: selectedContentType || detail?.contentType,
                     category: category,
                     authorId: user.nip,
                     instructionId: instructionId
@@ -644,7 +658,7 @@ export default function AssignmentDetailPage() {
                                         </div>
 
                                         <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Tipe Konten</label>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Kategori Konten</label>
                                             <div className="flex gap-2">
                                                 {["PROMOSI", "KEGIATAN"].map((cat) => (
                                                     <button
@@ -662,6 +676,21 @@ export default function AssignmentDetailPage() {
                                                     </button>
                                                 ))}
                                             </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Format Konten</label>
+                                            <select
+                                                value={selectedContentType}
+                                                onChange={(e) => setSelectedContentType(e.target.value)}
+                                                className="w-full px-8 py-5 bg-gray-50 border-2 border-transparent focus:border-red-500 focus:bg-white rounded-[2rem] transition-all font-bold text-gray-800 shadow-inner outline-none appearance-none"
+                                                required
+                                            >
+                                                <option value="">Pilih Format Konten</option>
+                                                {contentTypes.map((type) => (
+                                                    <option key={type.value} value={type.value}>{type.label}</option>
+                                                ))}
+                                            </select>
                                         </div>
 
 

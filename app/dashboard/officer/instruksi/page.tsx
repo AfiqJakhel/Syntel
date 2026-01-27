@@ -152,7 +152,14 @@ function InstruksiContent() {
 
             if (res.ok) {
                 toast.dismiss(loadingId as string);
-                modernToast("success", "Review Selesai!", `Pengajuan telah dikembalikan untuk revisi.`);
+
+                let successMsg = "Status pengajuan telah diperbarui.";
+                if (status === "APPROVED") successMsg = "pengajuan telah berhasil di setujui";
+                else if (status === "REVISION") successMsg = "pengajuan dikembalikan untuk revisi";
+                else if (status === "PENDING") successMsg = "Status dikembalikan ke pengecekan.";
+                else if (status === "REJECTED") successMsg = "Pengajuan telah ditolak.";
+
+                modernToast("success", "Review Selesai!", successMsg);
                 setShowRevisionModal(false);
                 setShowDetailModal(false);
                 fetchData();
