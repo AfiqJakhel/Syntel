@@ -10,7 +10,7 @@ export async function GET(
     const { id } = await params;
 
     try {
-        const instruction = await prisma.instruction.findUnique({
+        let instruction = await prisma.instruction.findUnique({
             where: { id },
             include: {
                 issuer: {
@@ -36,6 +36,7 @@ export async function GET(
                     include: {
                         author: {
                             select: {
+                                nip: true,
                                 firstName: true,
                                 lastName: true
                             }
@@ -45,14 +46,72 @@ export async function GET(
             }
         });
 
+        // 2. If not found as instruction, check if it's a submission (Initiative)
         if (!instruction) {
-            return NextResponse.json(
-                { error: "Instruksi tidak ditemukan" },
-                { status: 404 }
-            );
+            const submission = await prisma.submission.findUnique({
+                where: { id },
+                include: {
+                    author: {
+                        select: {
+                            nip: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true
+                        }
+                    }
+                }
+            });
+
+            if (!submission) {
+                return NextResponse.json(
+                    { error: "Instruksi atau Pengajuan tidak ditemukan" },
+                    { status: 404 }
+                );
+            }
+
+            // If it has an instructionId, we should probably have found it above, 
+            // but for safety, if found via SBM-ID but belongs to an instruction, return that
+            if (submission.instructionId) {
+                return NextResponse.json({ error: "Gunakan ID Instruksi untuk mengakses detail ini" }, { status: 400 });
+            }
+
+            // Return Virtual Instruction for Initiative
+            const formattedInitiative = {
+                id: submission.id,
+                title: submission.title,
+                description: submission.description || "Pengajuan Mandiri (Inisiatif)",
+                deadline: submission.createdAt,
+                priority: "MEDIUM",
+                contentType: submission.contentType,
+                thumbnail: submission.thumbnail,
+                issuer: {
+                    nip: submission.author.nip,
+                    name: `${submission.author.firstName} ${submission.author.lastName}`
+                },
+                assignees: [{
+                    nip: submission.author.nip,
+                    name: `${submission.author.firstName} ${submission.author.lastName}`,
+                    role: submission.author.role
+                }],
+                isSubmitted: true,
+                submission: {
+                    id: submission.id,
+                    title: submission.title,
+                    description: submission.description,
+                    fileUrl: submission.fileUrl,
+                    thumbnail: submission.thumbnail,
+                    category: submission.category,
+                    status: submission.status,
+                    submittedBy: `${submission.author.firstName} ${submission.author.lastName}`,
+                    submittedAt: submission.createdAt,
+                    feedback: submission.feedback
+                }
+            };
+
+            return NextResponse.json(formattedInitiative);
         }
 
-        // Format data for simpler consumption
+        // 3. Format data for Instruction
         const formatted = {
             id: instruction.id,
             title: instruction.title,

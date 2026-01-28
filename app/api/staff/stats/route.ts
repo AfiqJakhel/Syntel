@@ -45,8 +45,7 @@ export async function GET(req: Request) {
         const totalPending = await prisma.submission.count({
             where: {
                 authorId,
-                status: 'PENDING',
-                instructionId: null
+                status: 'PENDING'
             }
         });
 
