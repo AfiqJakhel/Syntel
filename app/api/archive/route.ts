@@ -11,12 +11,17 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get("limit") || "20");
         const sortBy = searchParams.get("sortBy") || "updatedAt";
         const sortOrder = searchParams.get("sortOrder") || "desc";
+        const folderId = searchParams.get("folderId");
 
         // Build where clause
         const whereClause: any = {
             status: "APPROVED",
             fileUrl: { not: null }, // Only files with uploaded content
         };
+
+        if (folderId) {
+            whereClause.folderId = folderId === "root" ? null : folderId;
+        }
 
         // Filter by content type
         if (contentType && contentType !== "ALL") {
@@ -134,5 +139,61 @@ export async function GET(request: Request) {
             { error: "Gagal memuat arsip.", details: error.message },
             { status: 500 }
         );
+    }
+}
+
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, title, folderId } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: "ID tidak disediakan." }, { status: 400 });
+        }
+
+        const updateData: any = {};
+        if (title !== undefined) updateData.title = title;
+        if (folderId !== undefined) updateData.folderId = folderId === "root" ? null : folderId;
+
+        const submission = await prisma.submission.update({
+            where: { id },
+            data: updateData
+        });
+
+        return NextResponse.json({
+            message: "Arsip berhasil diperbarui",
+            submission
+        });
+    } catch (error: any) {
+        console.error("❌ Archive Update Error:", error);
+        return NextResponse.json({ error: "Gagal memperbarui arsip." }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get("id");
+        const ids = searchParams.get("ids");
+
+        const targetIds = id ? [id] : ids ? ids.split(",") : [];
+
+        if (targetIds.length === 0) {
+            return NextResponse.json({ error: "ID tidak disediakan." }, { status: 400 });
+        }
+
+        // For submissions, we usually don't delete from Cloudinary automatically 
+        // because it might be linked to other things (like original submissions or raw assets)
+        // but we delete the record from archive view.
+        // In this system, deleting from archive means deleting the submission record.
+
+        await prisma.submission.deleteMany({
+            where: { id: { in: targetIds } }
+        });
+
+        return NextResponse.json({ message: "Arsip berhasil dihapus." });
+    } catch (error: any) {
+        console.error("❌ Archive Delete Error:", error);
+        return NextResponse.json({ error: "Gagal menghapus arsip." }, { status: 500 });
     }
 }

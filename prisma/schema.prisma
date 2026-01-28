@@ -112,6 +112,9 @@ model Submission {
   reviewedById  String?
   reviewer      User?            @relation("ReviewedBy", fields: [reviewedById], references: [nip])
 
+  folderId      String?
+  folder        ArchiveFolder?   @relation("SubmissionFolders", fields: [folderId], references: [id], onDelete: SetNull)
+
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -194,8 +197,9 @@ model ArchiveFolder {
   parent       ArchiveFolder?    @relation("SubFolders", fields: [parentId], references: [id], onDelete: Cascade)
   subFolders   ArchiveFolder[]   @relation("SubFolders")
   
-  resources    ArchiveResource[]
-  permissions  ArchiveFolderPermission[]
+  resources           ArchiveResource[]
+  archivedSubmissions Submission[] @relation("SubmissionFolders")
+  permissions         ArchiveFolderPermission[]
   
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

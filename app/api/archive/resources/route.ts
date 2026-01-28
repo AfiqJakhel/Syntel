@@ -177,3 +177,32 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: "Gagal menghapus data dari arsip." }, { status: 500 });
     }
 }
+
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, title, folderId } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: "ID tidak disediakan." }, { status: 400 });
+        }
+
+        const updateData: any = {};
+        if (title !== undefined) updateData.title = title;
+        if (folderId !== undefined) updateData.folderId = folderId === "root" ? null : folderId;
+
+        const resource = await prisma.archiveResource.update({
+            where: { id },
+            data: updateData
+        });
+
+        return NextResponse.json({
+            message: "Data berhasil diperbarui",
+            resource
+        });
+    } catch (error: any) {
+        console.error("❌ Resource Update Error:", error);
+        return NextResponse.json({ error: "Gagal memperbarui data." }, { status: 500 });
+    }
+}
+
