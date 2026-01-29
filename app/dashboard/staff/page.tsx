@@ -53,6 +53,7 @@ export default function StaffDashboard() {
     const [events, setEvents] = useState<Event[]>([]);
     const [deadlines, setDeadlines] = useState<Deadline[]>([]);
     const [activities, setActivities] = useState<Activity[]>([]);
+    const [history, setHistory] = useState<Activity[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [stats, setStats] = useState<{
@@ -128,6 +129,7 @@ export default function StaffDashboard() {
                     deadlines: statsData.deadlines
                 });
                 setActivities(statsData.activities);
+                setHistory(statsData.history || []);
                 setDeadlines(statsData.deadlines);
             }
         } catch (error) {
@@ -840,7 +842,7 @@ export default function StaffDashboard() {
                 )}
 
                 {/* Activity Feed */}
-                {activities.length > 0 && (
+                {history.length > 0 && (
                     <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 sm:p-10">
                         <div className="flex items-center justify-between mb-10">
                             <div className="flex items-center gap-4">
@@ -850,14 +852,14 @@ export default function StaffDashboard() {
                                 <div>
                                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">Aktivitas Terbaru</h2>
                                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                        Riwayat pengajuan Anda
+                                        Riwayat aktivitas tim
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-gray-100 border-t border-gray-100 -mx-8 sm:-mx-10 mt-10">
-                            {activities.map((activity) => (
+                            {history.map((activity) => (
                                 <div key={activity.id} className="relative p-8 hover:bg-gray-50/50 transition-all duration-300 group cursor-pointer overflow-hidden">
                                     <div className={`absolute top-0 left-0 w-1 h-full ${activity.color} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
 

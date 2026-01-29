@@ -37,7 +37,8 @@ export async function GET(req: Request) {
         // Total submissions (both initiatives and instruction-based) by this staff member
         const totalSubmissions = await prisma.submission.count({
             where: {
-                authorId
+                authorId,
+                instructionId: null
             }
         });
 
@@ -45,7 +46,8 @@ export async function GET(req: Request) {
         const totalPending = await prisma.submission.count({
             where: {
                 authorId,
-                status: 'PENDING'
+                status: 'PENDING',
+                instructionId: null
             }
         });
 
@@ -53,7 +55,8 @@ export async function GET(req: Request) {
         const totalApproved = await prisma.submission.count({
             where: {
                 authorId,
-                status: 'APPROVED'
+                status: 'APPROVED',
+                instructionId: null
             }
         });
 
@@ -70,12 +73,47 @@ export async function GET(req: Request) {
             }
         });
 
-        // Recent activities by this staff member (both initiatives and instruction-based)
+        // Recent activities by this staff member (initiatives only)
         const recentActivities = await prisma.submission.findMany({
             where: {
-                authorId
+                authorId,
+                instructionId: null
             },
-            take: 10, // Increase count for better history
+            take: 10,
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                author: {
+                    select: {
+                        firstName: true,
+                        lastName: true
+                    }
+                },
+                instruction: {
+                    select: {
+                        id: true,
+                        title: true
+                    }
+                }
+            }
+        });
+
+        // History (Everything: Initiatives + Assigned Instructions)
+        // 1. Get IDs of instructions assigned to this user
+        const assignments = await prisma.instructionAssignee.findMany({
+            where: { staffNip: authorId },
+            select: { instructionId: true }
+        });
+        const assignedIds = assignments.map((a: any) => a.instructionId);
+
+        // 2. Fetch submissions that are either authored by user OR belong to assigned instructions
+        const historyData = await prisma.submission.findMany({
+            where: {
+                OR: [
+                    { authorId },
+                    { instructionId: { in: assignedIds } }
+                ]
+            },
+            take: 10,
             orderBy: { updatedAt: 'desc' },
             include: {
                 author: {
@@ -115,7 +153,38 @@ export async function GET(req: Request) {
             }
 
             return {
-                id: sub.id,
+                id: sub.instructionId || sub.id,
+                user: `${sub.author.firstName} ${sub.author.lastName}`,
+                action: actionLabel,
+                status: sub.status,
+                detail: sub.title,
+                avatar: sub.author.firstName[0],
+                color: activityColors[index % activityColors.length],
+                timestamp: sub.updatedAt
+            };
+        });
+
+        const history = historyData.map((sub: any, index: number) => {
+            const isInitiative = !sub.instructionId;
+            const isUpdate = sub.createdAt.getTime() !== sub.updatedAt.getTime();
+            let actionLabel = "";
+
+            if (sub.status === "PENDING") {
+                if (isUpdate) {
+                    actionLabel = "upload revisi";
+                } else {
+                    actionLabel = isInitiative ? "membuat pengajuan" : "submit tugas";
+                }
+            } else if (sub.status === "REVISION") {
+                actionLabel = "perlu revisi";
+            } else if (sub.status === "APPROVED") {
+                actionLabel = "disetujui";
+            } else if (sub.status === "REJECTED") {
+                actionLabel = "ditolak";
+            }
+
+            return {
+                id: sub.instructionId || sub.id,
                 user: `${sub.author.firstName} ${sub.author.lastName}`,
                 action: actionLabel,
                 status: sub.status,
@@ -178,6 +247,7 @@ export async function GET(req: Request) {
             where: {
                 authorId,
                 status: 'APPROVED',
+                instructionId: null,
                 ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {})
             },
             _count: {
@@ -207,6 +277,7 @@ export async function GET(req: Request) {
             totalApproved,
             activeTasks,
             activities,
+            history,
             deadlines,
             contentStats: contentTypeStats
         });
