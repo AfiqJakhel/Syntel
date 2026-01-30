@@ -38,6 +38,7 @@ function PengajuanContent() {
     const [activeTab, setActiveTab] = useState<TabType>("upcoming");
     const [loading, setLoading] = useState(true);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType;
@@ -83,6 +84,11 @@ function PengajuanContent() {
 
     const filteredAssignments = assignments
         .filter((sub) => {
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                if (!sub.title.toLowerCase().includes(query)) return false;
+            }
+
             if (activeTab === "completed") {
                 return sub.isSubmitted && sub.status !== "revision" && sub.source !== "INISIATIF";
             }
@@ -162,15 +168,19 @@ function PengajuanContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors">
-                            <Search size={20} />
-                        </button>
-                        <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors">
-                            <Filter size={20} />
-                        </button>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Cari pengajuan..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 pr-4 py-2 bg-gray-50 border-none rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:bg-white transition-all w-[200px]"
+                            />
+                        </div>
                         <button
                             onClick={() => router.push("/dashboard/staff/pengajuan/buat")}
-                            className="flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-600 transition-all shadow-xl hover:-translate-y-1 active:scale-95"
+                            className="flex items-center gap-2 px-6 py-2 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-600 transition-all shadow-xl hover:-translate-y-1 active:scale-95 whitespace-nowrap"
                         >
                             <Plus size={16} />
                             Buat Pengajuan

@@ -105,6 +105,7 @@ export async function GET(req: Request) {
         });
         const assignedIds = assignments.map((a: any) => a.instructionId);
 
+
         // 2. Fetch submissions that are either authored by user OR belong to assigned instructions
         const historyData = await prisma.submission.findMany({
             where: {
@@ -188,7 +189,7 @@ export async function GET(req: Request) {
                 user: `${sub.author.firstName} ${sub.author.lastName}`,
                 action: actionLabel,
                 status: sub.status,
-                detail: sub.title,
+                detail: sub.instruction ? sub.instruction.title : sub.title,
                 avatar: sub.author.firstName[0],
                 color: activityColors[index % activityColors.length],
                 timestamp: sub.updatedAt

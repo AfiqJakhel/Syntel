@@ -852,7 +852,7 @@ export default function StaffDashboard() {
                                 <div>
                                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">Aktivitas Terbaru</h2>
                                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                        Riwayat aktivitas tim
+                                        Riwayat aktivitas
                                     </p>
                                 </div>
                             </div>
