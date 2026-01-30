@@ -1008,6 +1008,17 @@ export default function ArchivePage() {
                         {activeTab === "RAW" && (
                             <div className="flex items-center gap-3">
                                 <button
+                                    onClick={() => {
+                                        setPermissionsFolder({ id: "root", name: "Akses Utama (Root)" } as any);
+                                        setShowPermissionsModal(true);
+                                    }}
+                                    className="flex items-center gap-3 bg-white border border-gray-100 text-blue-600 px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-sm hover:border-blue-200 transition-all"
+                                    title="Kelola izin akses untuk seluruh staff secara umum"
+                                >
+                                    <Shield className="h-5 w-5" />
+                                    Kelola Akses
+                                </button>
+                                <button
                                     onClick={() => setShowCreateFolderModal(true)}
                                     className="flex items-center gap-3 bg-white border border-gray-100 text-gray-900 px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-sm hover:border-red-200 transition-all"
                                 >
@@ -1072,25 +1083,6 @@ export default function ArchivePage() {
                                 <List className="h-4 w-4" />
                             </button>
                         </div>
-
-                        {/* Kelola Akses Global Arsip */}
-                        <button
-                            onClick={() => {
-                                // Virtual root folder for permissions
-                                setPermissionsFolder({
-                                    id: "root",
-                                    name: "Arsip Utama",
-                                    description: "Akses default arsip bagi staff",
-                                    parentId: null
-                                } as any);
-                                setShowPermissionsModal(true);
-                            }}
-                            className="flex items-center gap-3 bg-white border border-gray-100 text-gray-600 px-6 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-sm hover:border-blue-200 hover:text-blue-600 transition-all group"
-                            title="Kelola Akses Halaman Ini"
-                        >
-                            <Shield className="h-4 w-4 text-blue-500 group-hover:scale-110 transition-transform" />
-                            Akses
-                        </button>
                     </div>
                 </div>
 
@@ -1151,6 +1143,17 @@ export default function ArchivePage() {
                                                             >
                                                                 <Info className="h-4 w-4" />
                                                                 View Information
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setPermissionsFolder(folder);
+                                                                    setShowPermissionsModal(true);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 transition-all rounded-xl"
+                                                            >
+                                                                <Shield className="h-4 w-4" />
+                                                                Manage Access
                                                             </button>
                                                             <button
                                                                 onClick={(e) => {
@@ -1820,7 +1823,7 @@ export default function ArchivePage() {
                                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
                                             <Archive className="h-5 w-5 text-gray-400 group-hover:text-red-600" />
                                         </div>
-                                        <span className="text-xs font-black uppercase text-gray-700 group-hover:text-red-700">Arsip Utama (Root)</span>
+                                        <span className="text-xs font-black uppercase text-gray-700 group-hover:text-red-700">Arsip (Root)</span>
                                     </button>
 
                                     {allPotentialFolders.map(folder => (

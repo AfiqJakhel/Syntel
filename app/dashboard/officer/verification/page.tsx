@@ -23,6 +23,9 @@ export default function AccountVerificationPage() {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedUserForAction, setSelectedUserForAction] = useState<User | null>(null);
+    const [actionType, setActionType] = useState<"verify" | "reject" | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -114,6 +117,7 @@ export default function AccountVerificationPage() {
     };
 
     const handleVerify = async (nip: string) => {
+        setIsProcessing(true);
         const user = users.find((u) => u.nip === nip);
         const loadingId = modernToast("loading", "Verifikasi Akun", `Memproses pendaftaran ${user?.firstName}...`);
 
@@ -133,16 +137,21 @@ export default function AccountVerificationPage() {
                     "Berhasil Diverifikasi",
                     `Akun ${user?.firstName} ${user?.lastName} kini resmi menjadi bagian dari Syntel.`
                 );
+                setSelectedUserForAction(null);
+                setActionType(null);
             } else {
                 modernToast("error", "Verifikasi Gagal", "Terjadi error pada gateway verifikasi.");
             }
         } catch (err) {
             toast.dismiss(loadingId as string);
             modernToast("error", "Kesalahan Sistem", "Gagal menghubungi modul otorisasi.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handleReject = async (nip: string) => {
+        setIsProcessing(true);
         const user = users.find((u) => u.nip === nip);
         const loadingId = modernToast("loading", "Penolakan Akun", `Menghapus permintaan ${user?.firstName}...`);
 
@@ -162,12 +171,16 @@ export default function AccountVerificationPage() {
                     "Pendaftaran Ditolak",
                     `Akses untuk ${user?.firstName} ${user?.lastName} tidak disetujui.`
                 );
+                setSelectedUserForAction(null);
+                setActionType(null);
             } else {
                 modernToast("error", "Aksi Gagal", "Gagal memproses penolakan akun.");
             }
         } catch (err) {
             toast.dismiss(loadingId as string);
             modernToast("error", "Network Error", "Masalah koneksi saat memproses penolakan.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -312,14 +325,14 @@ export default function AccountVerificationPage() {
                                         {/* Right Section - Actions */}
                                         <div className="flex items-center gap-3 pt-4 lg:pt-0 lg:pl-6 border-t lg:border-t-0 lg:border-l border-gray-50 flex-wrap sm:flex-nowrap">
                                             <button
-                                                onClick={() => handleVerify(user.nip)}
+                                                onClick={() => { setSelectedUserForAction(user); setActionType("verify"); }}
                                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all duration-300 shadow-sm hover:shadow-emerald-100"
                                             >
                                                 <UserCheck className="h-4 w-4" />
                                                 Verify
                                             </button>
                                             <button
-                                                onClick={() => handleReject(user.nip)}
+                                                onClick={() => { setSelectedUserForAction(user); setActionType("reject"); }}
                                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-red-50 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#E30613] hover:bg-[#E30613] hover:text-white transition-all duration-300 shadow-sm hover:shadow-red-100"
                                             >
                                                 <UserX className="h-4 w-4" />
@@ -366,6 +379,97 @@ export default function AccountVerificationPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            {selectedUserForAction && actionType && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute inset-0 bg-gray-900/80 backdrop-blur-md"
+                        onClick={() => !isProcessing && setSelectedUserForAction(null)}
+                    />
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden"
+                    >
+                        {/* Banner */}
+                        <div className={cn(
+                            "h-32 relative overflow-hidden flex-shrink-0 bg-gradient-to-br",
+                            actionType === "verify" ? "from-emerald-600 to-green-700" : "from-[#7F0000] to-[#E30613]"
+                        )}>
+                            <div className="absolute inset-0 opacity-10">
+                                <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-between px-10">
+                                <div className="flex items-center gap-6">
+                                    <div className="h-16 w-16 bg-white/20 backdrop-blur-xl rounded-2xl border border-white/30 flex items-center justify-center shadow-2xl">
+                                        {actionType === "verify" ? <UserCheck className="h-8 w-8 text-white" /> : <UserX className="h-8 w-8 text-white" />}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-none">
+                                            {actionType === "verify" ? "Konfirmasi Verifikasi" : "Konfirmasi Penolakan"}
+                                        </h2>
+                                        <p className="text-[9px] font-bold text-white/70 uppercase tracking-[0.2em] mt-2">
+                                            {selectedUserForAction.firstName} {selectedUserForAction.lastName}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedUserForAction(null)}
+                                    disabled={isProcessing}
+                                    className="p-3 bg-black/20 hover:bg-black/40 text-white rounded-2xl transition-all"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-10 text-center">
+                            <div className="mb-8">
+                                <p className="text-gray-500 font-bold text-sm leading-relaxed">
+                                    {actionType === "verify"
+                                        ? "Apakah Anda yakin ingin memverifikasi akun ini? User akan mendapatkan akses penuh ke dashboard staff."
+                                        : "Apakah Anda yakin ingin menolak pendaftaran ini? Data user akan dihapus dari antrean verifikasi."}
+                                </p>
+                            </div>
+
+                            <div className="p-6 rounded-[2rem] bg-gray-50 border border-gray-100 mb-10 text-left">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-gray-400 border border-gray-50">
+                                        {selectedUserForAction.firstName[0]}{selectedUserForAction.lastName[0]}
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Employee NIP</p>
+                                        <p className="text-sm font-bold text-gray-900">{selectedUserForAction.nip}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setSelectedUserForAction(null)}
+                                    disabled={isProcessing}
+                                    className="py-4 rounded-[2rem] text-xs font-black uppercase tracking-widest text-gray-400 hover:bg-gray-50 transition-all border border-gray-100"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={() => actionType === "verify" ? handleVerify(selectedUserForAction.nip) : handleReject(selectedUserForAction.nip)}
+                                    disabled={isProcessing}
+                                    className={cn(
+                                        "py-4 rounded-[2rem] text-xs font-black uppercase tracking-widest text-white shadow-xl transition-all",
+                                        actionType === "verify" ? "bg-emerald-600 shadow-emerald-200" : "bg-[#E30613] shadow-red-200"
+                                    )}
+                                >
+                                    {isProcessing ? "Memproses..." : (actionType === "verify" ? "Ya, Verifikasi" : "Ya, Tolak")}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </DashboardLayout>
     );
 }

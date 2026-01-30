@@ -59,22 +59,9 @@ export async function POST(request: Request) {
             );
         }
 
-        // Handle root permissions
+        // Handle root permissions or normal folder
         let targetFolderId = folderId;
-        if (folderId === "root") {
-            // Ensure a hidden system folder exists for root permissions
-            const rootMarker = await prisma.archiveFolder.upsert({
-                where: { id: "root" },
-                update: {},
-                create: {
-                    id: "root",
-                    name: "Arsip Utama",
-                    description: "System folder for root permissions",
-                    uploaderId: grantedById,
-                }
-            });
-            targetFolderId = rootMarker.id;
-        } else {
+        if (folderId !== "root") {
             // Verify normal folder exists
             const folder = await prisma.archiveFolder.findUnique({
                 where: { id: folderId }
