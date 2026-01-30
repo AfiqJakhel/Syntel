@@ -423,13 +423,17 @@ export default function StaffArchivePage() {
                 <div className="bg-white border-b border-gray-100 sticky top-0 z-50">
                     <div className="max-w-[120rem] mx-auto px-8 py-8">
                         <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter flex items-center gap-3">
-                                    <Archive className="h-8 w-8 text-red-600" />
-                                    Arsip Dokumen
-                                </h1>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">
-                                    Lihat dan Kelola Dokumen
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-200">
+                                        <Archive className="h-6 w-6 text-white" />
+                                    </div>
+                                    <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase sm:text-5xl">
+                                        Arsip Dokumen
+                                    </h1>
+                                </div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.3em] flex items-center gap-3 ml-1">
+                                    Lihat dan Kelola Dokumen <span className="w-12 h-[2px] bg-red-100"></span>
                                 </p>
                             </div>
 
@@ -574,7 +578,7 @@ export default function StaffArchivePage() {
                                                     className="contents"
                                                 >
                                                     <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
-                                                        <Archive className="h-5 w-5 text-red-600" />
+                                                        <Folder className="h-5 w-5 text-red-600 fill-red-600" />
                                                     </div>
                                                     <div className="min-w-0 pr-12">
                                                         <p className="text-[10px] font-black text-gray-900 uppercase truncate tracking-tight">{folder.name}</p>
@@ -1034,20 +1038,31 @@ function FileCard({ file, hasFullAccess, onDelete, onRename, onMove, onCopy, onI
             className="group relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-2xl hover:border-red-200 transition-all duration-500 cursor-pointer"
         >
             <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative">
-                {file.fileType === "IMAGE" || file.fileType === "VIDEO" ? (
-                    <img
-                        src={file.thumbnail || "/api/placeholder/400/300"}
-                        alt={file.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/api/placeholder/400/300";
-                        }}
-                    />
-                ) : (
-                    <div className="flex flex-col items-center gap-2">
-                        <FileText className="h-10 w-10 text-red-500" />
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Document</span>
+                {file.fileType === "DOCUMENT" ? (
+                    <div className="w-full h-full bg-gradient-to-br from-slate-100 via-slate-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                        {/* Decorative lines pattern */}
+                        <div className="absolute inset-0 opacity-[0.04]">
+                            <div className="absolute top-3 left-3 w-16 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute top-5 left-3 w-24 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute top-7 left-3 w-20 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute bottom-3 right-3 w-12 h-0.5 bg-slate-900 rounded-full" />
+                            <div className="absolute bottom-5 right-3 w-20 h-0.5 bg-slate-900 rounded-full" />
+                        </div>
+
+                        {/* Document Icon with Badge */}
+                        <div className="relative group-hover:scale-110 transition-transform duration-500">
+                            <div className="w-12 h-15 bg-white rounded-lg shadow-lg border border-slate-200/50 flex flex-col items-center justify-center relative overflow-hidden p-2">
+                                <div className="absolute top-0 right-0 w-4 h-4 bg-gradient-to-br from-slate-200 to-slate-100 rounded-bl-md" />
+                                <FileText className="h-6 w-6 text-red-500" strokeWidth={1.5} />
+                            </div>
+                            {/* Extension Badge */}
+                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-red-600 text-white text-[6px] font-black uppercase tracking-wider rounded-full shadow-md">
+                                {file.title?.split('.').pop()?.toUpperCase().slice(0, 4) || 'DOC'}
+                            </div>
+                        </div>
                     </div>
+                ) : (
+                    <img src={file.thumbnail || "/api/placeholder/400/300"} alt={file.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 )}
                 <div className="absolute top-3 right-3 z-[30]">
                     <button

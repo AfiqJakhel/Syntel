@@ -308,7 +308,7 @@ export default function ArchivePage() {
                 sortBy,
                 sortOrder,
                 ...(activeTab === "FINISHED" && contentTypeFilter !== "ALL" && { contentType: contentTypeFilter }),
-                folderId: currentFolderId || "root",
+                ...(activeTab === "RAW" && { folderId: currentFolderId || "root" }),
                 ...(search && { search }),
             });
 
@@ -324,8 +324,8 @@ export default function ArchivePage() {
                 );
             }
 
-            // Add subfolder fetch if not searching
-            if (!search) {
+            // Add subfolder fetch if not searching and in RAW tab
+            if (!search && activeTab === "RAW") {
                 fetchPromises.push(
                     fetchWithDedup(`/api/archive/folders?parentId=${currentFolderId || "null"}`)
                 );
@@ -920,7 +920,7 @@ export default function ArchivePage() {
                             Dokumentasi
                         </button>
                         <button
-                            onClick={() => setActiveTab("FINISHED")}
+                            onClick={() => { setActiveTab("FINISHED"); setCurrentFolderId(null); }}
                             className={`px-8 py-3.5 rounded-[1.7rem] text-xs font-black uppercase tracking-widest transition-all ${activeTab === "FINISHED"
                                 ? "bg-white text-red-600 shadow-xl shadow-red-500/10 border border-red-50"
                                 : "text-gray-400 hover:text-gray-600"
@@ -932,7 +932,7 @@ export default function ArchivePage() {
                 </div>
 
                 {/* Breadcrumbs for Folders */}
-                {currentFolderId && (
+                {activeTab === "RAW" && currentFolderId && (
                     <div className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar py-2">
                         <button onClick={() => navigateToFolder(null)} className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">Arsip</button>
 
@@ -1102,8 +1102,8 @@ export default function ArchivePage() {
                         </div>
                     ) : (
                         <>
-                            {/* Folders Section - Now always show folders that are children of current root/folder */}
-                            {folders.filter(f => f.parentId === (currentFolderId || null)).length > 0 && (
+                            {/* Folders Section - Now only show in RAW tab */}
+                            {activeTab === "RAW" && folders.filter(f => f.parentId === (currentFolderId || null)).length > 0 && (
                                 <div className="mb-12 space-y-6">
                                     <div className="flex items-center gap-3 mb-6">
                                         <FolderPlus className="h-4 w-4 text-red-600" />
