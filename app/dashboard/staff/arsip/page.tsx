@@ -608,60 +608,64 @@ export default function StaffArchivePage() {
                                                             <Info className="h-4 w-4" />
                                                             View Information
                                                         </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDownloadFolder(folder);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                                                        >
-                                                            <Download className="h-4 w-4" />
-                                                            Download
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setFolderToRename(folder);
-                                                                setNewTitle(folder.name);
-                                                                setShowRenameModal(true);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                                                        >
-                                                            <Edit2 className="h-4 w-4" />
-                                                            Rename
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleCopyFolder(folder);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                                                        >
-                                                            <Copy className="h-4 w-4" />
-                                                            Make a Copy
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setFolderToMove(folder);
-                                                                setShowMoveModal(true);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                                                        >
-                                                            <Move className="h-4 w-4" />
-                                                            Move Folder
-                                                        </button>
-                                                        <div className="h-px bg-gray-50 my-1" />
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteFolder(folder.id);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl font-bold"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                            Delete Folder
-                                                        </button>
+                                                        {hasFullAccess && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDownloadFolder(folder);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                                >
+                                                                    <Download className="h-4 w-4" />
+                                                                    Download
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setFolderToRename(folder);
+                                                                        setNewTitle(folder.name);
+                                                                        setShowRenameModal(true);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                                >
+                                                                    <Edit2 className="h-4 w-4" />
+                                                                    Rename
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleCopyFolder(folder);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                                >
+                                                                    <Copy className="h-4 w-4" />
+                                                                    Make a Copy
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setFolderToMove(folder);
+                                                                        setShowMoveModal(true);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                                                >
+                                                                    <Move className="h-4 w-4" />
+                                                                    Move Folder
+                                                                </button>
+                                                                <div className="h-px bg-gray-50 my-1" />
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteFolder(folder.id);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl font-bold"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                    Delete Folder
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1000,13 +1004,15 @@ export default function StaffArchivePage() {
                                         </div>
                                         <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{selectedFile.title}</h3>
                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-10">File Dokumen • {formatFileSize(selectedFile.fileSize)}</p>
-                                        <button
-                                            onClick={() => handleDownload(selectedFile)}
-                                            className="px-10 py-5 bg-red-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-2xl shadow-red-900/40 flex items-center gap-3"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                            Unduh Sekarang
-                                        </button>
+                                        {hasFullAccess && (
+                                            <button
+                                                onClick={() => handleDownload(selectedFile)}
+                                                className="px-10 py-5 bg-red-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-2xl shadow-red-900/40 flex items-center gap-3"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                                Unduh Sekarang
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </motion.div>
@@ -1106,6 +1112,140 @@ function FileCard({ file, hasFullAccess, onDelete, onRename, onMove, onCopy, onI
                                     <Info className="h-4 w-4" />
                                     View Information
                                 </button>
+                                {hasFullAccess && (
+                                    <>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDownload(file);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            Download
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRename(file);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                        >
+                                            <Edit2 className="h-4 w-4" />
+                                            Rename
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onCopy(file);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                            Make a Copy
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onMove(file);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                                        >
+                                            <Move className="h-4 w-4" />
+                                            Move File
+                                        </button>
+                                        <div className="h-px bg-gray-50 my-1" />
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(file.id);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl font-bold"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete File
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+function FileListItem({ file, hasFullAccess, onDelete, onRename, onMove, onCopy, onInfo, onDownload, onPreview }: {
+    file: ArchiveFile,
+    hasFullAccess: boolean,
+    onDelete: (id: string) => void,
+    onRename: (file: ArchiveFile) => void,
+    onMove: (file: ArchiveFile) => void,
+    onCopy: (file: ArchiveFile) => void,
+    onInfo: (file: ArchiveFile) => void,
+    onDownload: (file: ArchiveFile) => void,
+    onPreview: (file: ArchiveFile) => void
+}) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => onPreview(file)}
+            className="group flex items-center gap-4 bg-white border border-gray-100 p-4 rounded-2xl hover:border-red-200 hover:shadow-xl transition-all cursor-pointer"
+        >
+            <div className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {file.thumbnail ? (
+                    <img src={file.thumbnail} alt={file.title} className="w-full h-full object-cover" />
+                ) : (
+                    <FileText className="h-5 w-5 text-red-500" />
+                )}
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="text-[11px] font-black text-gray-900 uppercase truncate tracking-tight">{file.title}</h3>
+                <p className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">
+                    {file.author} • {new Date(file.createdAt).toLocaleDateString()}
+                </p>
+            </div>
+            <div className="text-[10px] font-black text-gray-400 uppercase">
+                {file.fileSize ? `${(file.fileSize / 1024).toFixed(0)} KB` : "N/A"}
+            </div>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onPreview(file); }}
+                    className="p-2.5 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
+                >
+                    <Eye className="h-4 w-4" />
+                </button>
+                {hasFullAccess && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDownload(file); }}
+                        className="p-2.5 bg-gray-50 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-xl transition-all"
+                    >
+                        <Download className="h-4 w-4" />
+                    </button>
+                )}
+
+                <div className="relative group/listmenu">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); }}
+                        className="p-2.5 bg-gray-50 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-600 transition-all"
+                    >
+                        <MoreVertical className="h-4 w-4" />
+                    </button>
+                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/listmenu:opacity-100 group-hover/listmenu:visible transition-all z-50 p-2 overflow-hidden">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onInfo(file);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
+                        >
+                            <Info className="h-4 w-4" />
+                            View Information
+                        </button>
+                        {hasFullAccess && (
+                            <>
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -1157,132 +1297,8 @@ function FileCard({ file, hasFullAccess, onDelete, onRename, onMove, onCopy, onI
                                     <Trash2 className="h-4 w-4" />
                                     Delete File
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
-function FileListItem({ file, hasFullAccess, onDelete, onRename, onMove, onCopy, onInfo, onDownload, onPreview }: {
-    file: ArchiveFile,
-    hasFullAccess: boolean,
-    onDelete: (id: string) => void,
-    onRename: (file: ArchiveFile) => void,
-    onMove: (file: ArchiveFile) => void,
-    onCopy: (file: ArchiveFile) => void,
-    onInfo: (file: ArchiveFile) => void,
-    onDownload: (file: ArchiveFile) => void,
-    onPreview: (file: ArchiveFile) => void
-}) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={() => onPreview(file)}
-            className="group flex items-center gap-4 bg-white border border-gray-100 p-4 rounded-2xl hover:border-red-200 hover:shadow-xl transition-all cursor-pointer"
-        >
-            <div className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
-                {file.thumbnail ? (
-                    <img src={file.thumbnail} alt={file.title} className="w-full h-full object-cover" />
-                ) : (
-                    <FileText className="h-5 w-5 text-red-500" />
-                )}
-            </div>
-            <div className="flex-1 min-w-0">
-                <h3 className="text-[11px] font-black text-gray-900 uppercase truncate tracking-tight">{file.title}</h3>
-                <p className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">
-                    {file.author} • {new Date(file.createdAt).toLocaleDateString()}
-                </p>
-            </div>
-            <div className="text-[10px] font-black text-gray-400 uppercase">
-                {file.fileSize ? `${(file.fileSize / 1024).toFixed(0)} KB` : "N/A"}
-            </div>
-            <div className="flex items-center gap-2">
-                <button
-                    onClick={(e) => { e.stopPropagation(); onPreview(file); }}
-                    className="p-2.5 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"
-                >
-                    <Eye className="h-4 w-4" />
-                </button>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDownload(file); }}
-                    className="p-2.5 bg-gray-50 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-xl transition-all"
-                >
-                    <Download className="h-4 w-4" />
-                </button>
-
-                <div className="relative group/listmenu">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="p-2.5 bg-gray-50 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-600 transition-all"
-                    >
-                        <MoreVertical className="h-4 w-4" />
-                    </button>
-                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover/listmenu:opacity-100 group-hover/listmenu:visible transition-all z-50 p-2 overflow-hidden">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onInfo(file);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                        >
-                            <Info className="h-4 w-4" />
-                            View Information
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDownload(file);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                        >
-                            <Download className="h-4 w-4" />
-                            Download
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRename(file);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                        >
-                            <Edit2 className="h-4 w-4" />
-                            Rename
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onCopy(file);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                        >
-                            <Copy className="h-4 w-4" />
-                            Make a Copy
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onMove(file);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-all rounded-xl"
-                        >
-                            <Move className="h-4 w-4" />
-                            Move File
-                        </button>
-                        <div className="h-px bg-gray-50 my-1" />
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(file.id);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase text-red-600 hover:bg-red-50 transition-all rounded-xl font-bold"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Delete File
-                        </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
