@@ -60,19 +60,26 @@ const contentTypeLabels: Record<string, string> = {
 };
 
 // Helper untuk check permission
-async function checkFolderPermission(_folderId: string | null, staffNip: string): Promise<boolean> {
-    const targetFolderId = "root";
-
+async function checkFolderPermission(folderId: string | null, staffNip: string): Promise<boolean> {
     try {
-        const res = await fetch(`/api/archive/permissions?folderId=${targetFolderId}&staffNip=${staffNip}`);
-        const data = await res.json();
+        // 1. Cek permission di folder spesifik
+        if (folderId) {
+            const res = await fetch(`/api/archive/permissions?folderId=${folderId}&staffNip=${staffNip}`);
+            const data = await res.json();
+            const hasFullAccess = data.permissions?.some(
+                (p: any) => p.staffNip === staffNip && p.accessLevel === "FULL_ACCESS"
+            );
+            if (hasFullAccess) return true;
+        }
 
-        // Cek apakah ada permission FULL_ACCESS
-        const hasFullAccess = data.permissions?.some(
+        // 2. Cek permission di ROOT (Global)
+        const rootRes = await fetch(`/api/archive/permissions?folderId=root&staffNip=${staffNip}`);
+        const rootData = await rootRes.json();
+        const hasRootAccess = rootData.permissions?.some(
             (p: any) => p.staffNip === staffNip && p.accessLevel === "FULL_ACCESS"
         );
 
-        return hasFullAccess;
+        return hasRootAccess;
     } catch (error) {
         console.error("Error checking permission:", error);
         return false;
@@ -205,13 +212,18 @@ export default function StaffArchivePage() {
     }, [fetchData]);
 
     // Navigate to folder
-    const navigateToFolder = (folderId: string) => {
-        router.push(`/dashboard/staff/arsip?folderId=${folderId}`);
+    const navigateToFolder = (id: string | null) => {
+        const params = new URLSearchParams(searchParams?.toString());
+        if (id) params.set("folderId", id);
+        else params.delete("folderId");
+        router.push(`?${params.toString()}`);
     };
 
     // Navigate back
     const navigateBack = () => {
-        router.push("/dashboard/staff/arsip");
+        const params = new URLSearchParams(searchParams?.toString());
+        params.delete("folderId");
+        router.push(`?${params.toString()}`);
     };
 
     const formatFileSize = (bytes: number | null): string => {
@@ -465,7 +477,7 @@ export default function StaffArchivePage() {
                                 {hasFullAccess ? (
                                     <>
                                         <Shield className="h-4 w-4" />
-                                        {currentFolderId ? "Full Access - Anda bisa upload, edit, dan hapus" : "Akses Utama - Anda bisa upload ke root"}
+                                        {currentFolderId ? "Full Access - Anda bisa upload, edit, dan hapus" : "Akses Root (Full Access)"}
                                     </>
                                 ) : (
                                     <>
@@ -533,15 +545,35 @@ export default function StaffArchivePage() {
                             </div>
                         </div>
 
-                        {/* Breadcrumbs */}
+                        {/* Breadcrumbs for Folders */}
                         {activeTab === "RAW" && currentFolderId && (
-                            <div className="flex items-center gap-2 mt-4">
-                                <button
-                                    onClick={navigateBack}
-                                    className="text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
-                                >
-                                    ← Kembali ke Root
-                                </button>
+                            <div className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar py-2">
+                                <button onClick={() => navigateToFolder(null)} className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">Arsip</button>
+
+                                {(() => {
+                                    const path = [];
+                                    let current = allPotentialFolders.find(f => f.id === currentFolderId);
+                                    let safety = 0;
+                                    while (current && safety < 10) {
+                                        path.unshift(current);
+                                        const pid = current.parentId;
+                                        current = pid ? allPotentialFolders.find(f => f.id === pid) : undefined;
+                                        safety++;
+                                    }
+
+                                    return path.map((f, idx) => (
+                                        <React.Fragment key={f.id}>
+                                            <span className="text-gray-200 flex-shrink-0">/</span>
+                                            <button
+                                                onClick={() => navigateToFolder(f.id)}
+                                                disabled={idx === path.length - 1}
+                                                className={`transition-colors flex-shrink-0 ${idx === path.length - 1 ? "text-red-600 cursor-default" : "text-gray-400 hover:text-red-600"}`}
+                                            >
+                                                {f.name}
+                                            </button>
+                                        </React.Fragment>
+                                    ));
+                                })()}
                             </div>
                         )}
                     </div>

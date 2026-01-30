@@ -31,6 +31,7 @@ export async function GET(request: Request) {
         // Fetch multiple folders (either at root or inside another folder)
         const folders = await prisma.archiveFolder.findMany({
             where: {
+                id: { not: "root" },
                 uploaderId: uploaderId || undefined,
                 ...(all ? {} :
                     (parentId === "root" || parentId === "null" || !parentId)
