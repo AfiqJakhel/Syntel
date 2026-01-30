@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
 import {
@@ -17,7 +17,8 @@ import {
     ChevronDown,
     Search,
     Eye,
-    Folder
+    Folder,
+    Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,8 +30,10 @@ export default function LaporanPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
     const [reportData, setReportData] = useState<any>(null);
+    const reportRef = useRef<HTMLDivElement>(null);
 
     // Dynamic options based on Period
     const comparisonOptions: Record<string, string[]> = {
@@ -158,6 +161,241 @@ export default function LaporanPage() {
         return pages;
     };
 
+    const handleDownloadPDF = async () => {
+        setIsGeneratingPDF(true);
+
+        try {
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert('Popup blocked! Please allow popups for this site.');
+                setIsGeneratingPDF(false);
+                return;
+            }
+
+            const currentDate = new Date().toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+
+            // Generate PDF content
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Laporan Konten - ${selectedPeriod} - ${selectedComparison}</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { 
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                            padding: 40px; 
+                            color: #1f2937;
+                            line-height: 1.6;
+                        }
+                        .header { 
+                            text-align: center; 
+                            margin-bottom: 40px; 
+                            padding-bottom: 20px;
+                            border-bottom: 3px solid #dc2626;
+                        }
+                        .header h1 { 
+                            font-size: 28px; 
+                            font-weight: 900; 
+                            color: #1f2937;
+                            margin-bottom: 8px;
+                        }
+                        .header .subtitle { 
+                            font-size: 12px; 
+                            color: #6b7280; 
+                            text-transform: uppercase;
+                            letter-spacing: 2px;
+                        }
+                        .header .period { 
+                            font-size: 14px; 
+                            color: #dc2626; 
+                            font-weight: 700;
+                            margin-top: 10px;
+                        }
+                        .summary-grid { 
+                            display: grid; 
+                            grid-template-columns: repeat(4, 1fr); 
+                            gap: 16px; 
+                            margin-bottom: 32px; 
+                        }
+                        .summary-card { 
+                            background: #f9fafb; 
+                            border: 1px solid #e5e7eb;
+                            border-radius: 12px; 
+                            padding: 20px; 
+                            text-align: center;
+                        }
+                        .summary-card .value { 
+                            font-size: 36px; 
+                            font-weight: 900; 
+                            color: #1f2937;
+                        }
+                        .summary-card .label { 
+                            font-size: 11px; 
+                            color: #6b7280; 
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            margin-top: 4px;
+                        }
+                        .summary-card .trend { 
+                            font-size: 12px; 
+                            font-weight: 700;
+                            margin-top: 8px;
+                            padding: 4px 8px;
+                            border-radius: 20px;
+                            display: inline-block;
+                        }
+                        .trend-up { background: #d1fae5; color: #059669; }
+                        .trend-down { background: #fee2e2; color: #dc2626; }
+                        .section { margin-bottom: 32px; }
+                        .section-title { 
+                            font-size: 18px; 
+                            font-weight: 800; 
+                            color: #1f2937;
+                            margin-bottom: 16px;
+                            padding-bottom: 8px;
+                            border-bottom: 2px solid #e5e7eb;
+                        }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-top: 16px;
+                        }
+                        th, td { 
+                            padding: 12px; 
+                            text-align: left; 
+                            border-bottom: 1px solid #e5e7eb;
+                            font-size: 12px;
+                        }
+                        th { 
+                            background: #f3f4f6; 
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            color: #6b7280;
+                        }
+                        .trend-bar { 
+                            display: flex; 
+                            align-items: center; 
+                            margin: 8px 0;
+                        }
+                        .trend-bar .month { 
+                            width: 60px; 
+                            font-size: 11px; 
+                            font-weight: 700;
+                        }
+                        .trend-bar .bar-container { 
+                            flex: 1; 
+                            height: 24px; 
+                            background: #f3f4f6; 
+                            border-radius: 4px;
+                            display: flex;
+                            overflow: hidden;
+                        }
+                        .bar-approved { background: #10b981; }
+                        .bar-pending { background: #f59e0b; }
+                        .bar-revision { background: #ef4444; }
+                        .trend-bar .total { 
+                            width: 60px; 
+                            text-align: right; 
+                            font-size: 12px; 
+                            font-weight: 700;
+                        }
+                        .content-type-row { 
+                            display: flex; 
+                            justify-content: space-between; 
+                            padding: 8px 0;
+                            border-bottom: 1px solid #e5e7eb;
+                        }
+                        .footer { 
+                            margin-top: 40px; 
+                            padding-top: 20px; 
+                            border-top: 1px solid #e5e7eb;
+                            text-align: center;
+                            font-size: 10px;
+                            color: #9ca3af;
+                        }
+                        @media print {
+                            body { padding: 20px; }
+                            .summary-grid { grid-template-columns: repeat(4, 1fr); }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Laporan Konten</h1>
+                        <div class="subtitle">Syntel - Creative Hub Content Management</div>
+                        <div class="period">${selectedPeriod} • ${selectedComparison}</div>
+                    </div>
+
+                    <div class="summary-grid">
+                        ${summaryCards.map(card => `
+                            <div class="summary-card">
+                                <div class="value">${card.value}</div>
+                                <div class="label">${card.label}</div>
+                                <div class="trend ${card.isPositive ? 'trend-up' : 'trend-down'}">${card.trend} vs prev</div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Tren Produksi Konten</div>
+                        ${monthlyTrends.map((data: any) => `
+                            <div class="trend-bar">
+                                <div class="month">${data.month}</div>
+                                <div class="bar-container">
+                                    <div class="bar-approved" style="width: ${(data.approved / (reportData?.maxTrendValue || 100)) * 100}%"></div>
+                                    <div class="bar-pending" style="width: ${(data.pending / (reportData?.maxTrendValue || 100)) * 100}%"></div>
+                                    <div class="bar-revision" style="width: ${(data.revision / (reportData?.maxTrendValue || 100)) * 100}%"></div>
+                                </div>
+                                <div class="total">${data.total}</div>
+                            </div>
+                        `).join('')}
+                        <div style="display: flex; gap: 20px; margin-top: 12px; font-size: 11px;">
+                            <span style="color: #10b981;">● Approved</span>
+                            <span style="color: #f59e0b;">● Pending</span>
+                            <span style="color: #ef4444;">● Revision</span>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Distribusi Media</div>
+                        ${contentTypes.map((type: any, idx: number) => `
+                            <div class="content-type-row">
+                                <span>${String(idx + 1).padStart(2, '0')}. ${type.name}</span>
+                                <span><strong>${type.count}</strong> (${type.percentage}%)</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="footer">
+                        <p>Digenerate pada: ${currentDate} | Syntel - Portal Telkom Indonesia</p>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+
+            // Wait for content to load then print
+            printWindow.onload = () => {
+                setTimeout(() => {
+                    printWindow.print();
+                    setIsGeneratingPDF(false);
+                }, 500);
+            };
+
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            setIsGeneratingPDF(false);
+        }
+    };
 
 
     return (
@@ -189,13 +427,17 @@ export default function LaporanPage() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-stretch gap-4 w-full md:w-auto">
-                            <button className="flex items-center justify-center gap-3 px-8 py-4 bg-gray-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all hover:translate-y-[-2px] active:translate-y-0 shadow-lg shadow-gray-200 group">
-                                <FileSpreadsheet className="h-4 w-4 text-red-500 group-hover:scale-110 transition-transform" />
-                                Export Excel
-                            </button>
-                            <button className="flex items-center justify-center gap-3 px-8 py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:border-red-600 hover:text-red-600 transition-all hover:translate-y-[-2px] active:translate-y-0 shadow-sm shadow-gray-100">
-                                <Download className="h-4 w-4" />
-                                Download PDF
+                            <button
+                                onClick={handleDownloadPDF}
+                                disabled={isGeneratingPDF}
+                                className="flex items-center justify-center gap-3 px-8 py-4 bg-gray-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all hover:translate-y-[-2px] active:translate-y-0 shadow-lg shadow-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isGeneratingPDF ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="h-4 w-4" />
+                                )}
+                                {isGeneratingPDF ? "Generating..." : "Download PDF"}
                             </button>
                         </div>
                     </div>

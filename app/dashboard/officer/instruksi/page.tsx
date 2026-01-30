@@ -548,9 +548,6 @@ function InstruksiContent() {
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </button>
-                                                        <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                                            <Edit2 className="h-4 w-4" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -649,15 +646,6 @@ function InstruksiContent() {
                                                                 <Eye className="h-4 w-4" />
                                                             </button>
                                                         )}
-
-                                                        {/* Edit Icon - Always active */}
-                                                        <button
-                                                            onClick={() => router.push(`/dashboard/officer/instruksi/edit/${item.id}`)}
-                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Edit & Lihat Detail Instruksi"
-                                                        >
-                                                            <Edit2 className="h-4 w-4" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

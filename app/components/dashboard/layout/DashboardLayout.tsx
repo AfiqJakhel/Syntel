@@ -70,14 +70,15 @@ export function DashboardLayout({
                     {showNavbar && <DashboardNavbar onLogout={handleLogout} role={role} />}
 
                     {/* Content */}
-                    <main className="p-4 md:p-12 lg:p-16 flex-1 min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-8rem)]">
+                    <main className="p-4 md:p-12 lg:p-16 flex-1">
                         <div className="mx-auto w-full max-w-[1600px] animate-in fade-in slide-in-from-bottom-4 duration-700">
                             {children}
                         </div>
                     </main>
-
-                    <Footer />
                 </div>
+
+                {/* Footer - Fixed at bottom */}
+                <Footer />
             </div>
 
             <style jsx global>{`

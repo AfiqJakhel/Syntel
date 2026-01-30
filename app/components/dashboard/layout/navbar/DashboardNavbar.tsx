@@ -107,7 +107,7 @@ export function DashboardNavbar({ onLogout, role = "STAFF" }: DashboardNavbarPro
         <header className="sticky top-0 z-30 flex h-16 md:h-24 items-center justify-between bg-white/80 px-4 md:px-12 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
             {/* Left side */}
             <div className="hidden md:flex flex-col">
-                <span className="text-sm font-black uppercase tracking-widest text-red-600 mb-1">Portal Sintel</span>
+                <span className="text-sm font-black uppercase tracking-widest text-red-600 mb-1">Portal Syntel</span>
                 <span className="text-sm font-bold text-gray-400">Dashboard / {role}</span>
             </div>
 
@@ -214,12 +214,15 @@ export function DashboardNavbar({ onLogout, role = "STAFF" }: DashboardNavbarPro
                                 <div className="px-4 py-3 mb-2">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pengaturan</p>
                                 </div>
-                                <button className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all hover:translate-x-1 outline-none">
+                                <Link
+                                    href={`/dashboard/${role.toLowerCase()}/settings`}
+                                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all hover:translate-x-1 outline-none"
+                                >
                                     <div className="p-2 bg-gray-100 rounded-xl group-hover:bg-white transition-colors">
                                         <Settings className="h-4 w-4" />
                                     </div>
                                     Akun Saya
-                                </button>
+                                </Link>
                                 <div className="my-2 border-t border-gray-50"></div>
                                 <button
                                     onClick={onLogout}

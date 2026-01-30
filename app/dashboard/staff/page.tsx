@@ -336,26 +336,9 @@ export default function StaffDashboard() {
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                             {/* Left Side - Branding & Welcome */}
                             <div className="flex-1 space-y-4">
-                                {/* Creative Hub Branding */}
-                                <div className="inline-block">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="h-1 w-8 bg-gradient-to-r from-red-600 to-red-400 rounded-full" />
-                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.25em]">
-                                            Syntel Digital Team
-                                        </span>
-                                    </div>
-                                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none">
-                                        <span className="text-gray-900 italic">CREATIVE</span>{" "}
-                                        <span className="text-red-600 italic">HUB</span>
-                                    </h1>
-                                    <p className="mt-2 text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-[0.12em]">
-                                        Portal Pengiriman Karya & Inisiatif Kreatif
-                                    </p>
-                                </div>
-
                                 {/* Welcome Message */}
-                                <div className="pt-3 border-t border-gray-200/50">
-                                    <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-gray-900 tracking-tight leading-tight mb-1.5">
+                                <div className="pt-1">
+                                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 tracking-tight leading-tight mb-2">
                                         Selamat Datang, <span className="text-red-600">{userName}</span>!
                                     </h2>
                                     <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed max-w-2xl">
