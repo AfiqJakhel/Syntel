@@ -186,9 +186,6 @@ export default function StaffSettingsPage() {
                                     <div className="h-24 w-24 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl">
                                         {firstName?.[0]}{lastName?.[0]}
                                     </div>
-                                    <button className="absolute -bottom-2 -right-2 h-10 w-10 bg-white border-2 border-gray-100 rounded-xl flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors">
-                                        <Camera className="h-4 w-4 text-gray-600" />
-                                    </button>
                                 </div>
                                 <div>
                                     <p className="text-lg font-black text-gray-900">{firstName} {lastName}</p>
