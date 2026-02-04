@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, X, CheckCircle, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Upload, X, CheckCircle, Trash2, FileText, ChevronDown } from "lucide-react";
 import { DashboardLayout } from "@/app/components/dashboard/layout/DashboardLayout";
 import { cn } from "@/app/lib/utils";
 import toast from "react-hot-toast";
@@ -194,7 +194,7 @@ export default function BuatPengajuanPage() {
         <div className="min-h-screen bg-gray-50 pb-20">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-8 py-6 sticky top-0 z-20">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
+                <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <div>
                         <button
                             onClick={() => router.back()}
@@ -209,7 +209,7 @@ export default function BuatPengajuanPage() {
             </div>
 
             {/* Content */}
-            <div className="px-8 py-8 max-w-4xl mx-auto">
+            <div className="px-8 py-8 max-w-6xl mx-auto">
                 <form
                     onSubmit={handleSubmit}
                     className="bg-white rounded-[2.5rem] p-10 shadow-2xl shadow-gray-200/50 border border-gray-100"
@@ -231,19 +231,22 @@ export default function BuatPengajuanPage() {
                             </div>
 
                             <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Tipe Konten <span className="text-red-600">*</span></label>
-                                <select
-                                    name="contentType"
-                                    value={formData.contentType}
-                                    onChange={handleInputChange}
-                                    className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-red-500 focus:bg-white rounded-2xl transition-all font-bold text-gray-800 outline-none appearance-none"
-                                    required
-                                >
-                                    <option value="">Pilih tipe konten</option>
-                                    {contentTypes.map((type) => (
-                                        <option key={type.value} value={type.value}>{type.label}</option>
-                                    ))}
-                                </select>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Format Konten <span className="text-red-600">*</span></label>
+                                <div className="relative">
+                                    <select
+                                        name="contentType"
+                                        value={formData.contentType}
+                                        onChange={handleInputChange}
+                                        className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-red-500 focus:bg-white rounded-2xl transition-all font-bold text-gray-800 outline-none appearance-none"
+                                        required
+                                    >
+                                        <option value="">Pilih Format Konten</option>
+                                        {contentTypes.map((type) => (
+                                            <option key={type.value} value={type.value}>{type.label}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
 
@@ -262,7 +265,7 @@ export default function BuatPengajuanPage() {
 
                         {/* Category Toggle */}
                         <div className="space-y-4">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Kategori Konten</label>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Tipe Konten</label>
                             <div className="flex gap-4">
                                 {["PROMOSI", "KEGIATAN"].map((cat) => (
                                     <button

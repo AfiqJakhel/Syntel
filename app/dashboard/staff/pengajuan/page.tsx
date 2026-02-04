@@ -140,16 +140,16 @@ function PengajuanContent() {
 
     return (
         <DashboardLayout role="STAFF">
-            <div className="space-y-6 max-w-5xl mx-auto">
+            <div className="space-y-6 max-w-8xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-10">
-                        <h1 className="text-2xl font-black text-gray-900 italic uppercase tracking-tighter">
+                        <h1 className="text-3xl font-black text-gray-900 italic uppercase tracking-tighter">
                             Instruksi
                         </h1>
 
                         {/* Tabs */}
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                             {(["upcoming", "pastdue", "revision", "inisiatif", "completed"] as TabType[]).map((tab) => (
                                 <button
                                     key={tab}
@@ -211,7 +211,7 @@ function PengajuanContent() {
                                         {getRelativeDateInfo(items[0].dueDate)}
                                     </span>
                                 </div>
-                                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 px-4 overflow-hidden">
                                     {items.map((sub: Assignment) => (
                                         <InstructionListItem
                                             key={sub.id}

@@ -365,7 +365,7 @@ function InstruksiContent() {
                                     }`}
                             >
                                 <LayoutGrid className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Daftar Pengajuan</span>
+                                <span className="hidden sm:inline">Tracking Submissions</span>
                                 <span className="sm:hidden">Pengajuan</span>
                             </button>
                             <button
@@ -376,7 +376,7 @@ function InstruksiContent() {
                                     }`}
                             >
                                 <ListTodo className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Tracking Tugas</span>
+                                <span className="hidden sm:inline">Riwayat Instruksi</span>
                                 <span className="sm:hidden">Tracking</span>
                             </button>
                         </div>
@@ -508,7 +508,7 @@ function InstruksiContent() {
                                                             {item.source === 'INSTRUKSI' ? <ClipboardList className="h-5 w-5" /> : <Lightbulb className="h-5 w-5" />}
                                                         </div>
                                                         <div className="space-y-1.5">
-                                                            <p className="font-bold text-gray-900 text-sm leading-none">{item.title}</p>
+                                                            <p className="font-bold text-gray-900 text-sm leading-none">{item.instructionTitle || item.title}</p>
                                                             <div className="flex items-center gap-2">
                                                                 {getSourceLabel(item.source)}
                                                                 <span className="text-[11px] text-gray-400 font-bold">• {item.category || "PROMOSI"}</span>
@@ -624,28 +624,14 @@ function InstruksiContent() {
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        {/* Eye Icon - Active only when status is "Menunggu Review" */}
-                                                        {item.status === "Menunggu Review" && item.submission ? (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedSubmission(item.submission as Submission);
-                                                                    setFeedback(item.submission?.notes || "");
-                                                                    setShowDetailModal(true);
-                                                                }}
-                                                                className="p-2 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-all shadow-md shadow-emerald-200"
-                                                                title="Review & Approve Submission"
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                disabled
-                                                                className="p-2 text-gray-200 bg-gray-50 rounded-lg cursor-not-allowed"
-                                                                title="Belum ada submission"
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </button>
-                                                        )}
+                                                        {/* Edit Button - Always visible */}
+                                                        <button
+                                                            onClick={() => router.push(`/dashboard/officer/instruksi/edit/${item.id}`)}
+                                                            className="p-2 text-gray-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-600 rounded-lg transition-all shadow-sm"
+                                                            title="Edit Instruksi"
+                                                        >
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

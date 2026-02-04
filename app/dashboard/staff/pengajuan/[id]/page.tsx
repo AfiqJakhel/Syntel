@@ -291,33 +291,27 @@ export default function AssignmentDetailPage() {
 
     return (
         <DashboardLayout role="STAFF">
-            <div className="max-w-6xl mx-auto space-y-10">
+            <div className="max-w-8xl mx-auto space-y-10">
                 {/* Navigation & Header */}
-                <div className="flex flex-col gap-6">
-                    <button
-                        onClick={() => router.push("/dashboard/staff/pengajuan")}
-                        className="flex items-center gap-2 text-gray-400 hover:text-red-600 font-black uppercase tracking-widest text-[10px] transition-all w-fit"
-                    >
-                        <ArrowLeft size={16} />
-                        Kembali ke Daftar Instruksi
-                    </button>
-
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="bg-[#F8F9FA] border-gray-200 px-8 py-6">
+                    <div className="max-w-8xl mx-auto flex items-center justify-between">
                         <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
-                                    {detail.id}
-                                </span>
+                            <button
+                                onClick={() => router.push("/dashboard/staff/pengajuan")}
+                                className="flex items-center gap-2 text-gray-400 hover:text-red-600 font-black uppercase tracking-widest text-[10px] transition-all mb-3"
+                            >
+                                <ArrowLeft size={16} />
+                                Kembali ke Daftar Instruksi
+                            </button>
+                            <h1 className="text-4xl font-black text-gray-900 tracking-tight italic">
+                                INSTRUKSI
                                 <span className={cn(
-                                    "px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest",
+                                    "ml-2 px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest",
                                     detail.priority === "HIGH" ? "bg-red-100 text-red-600" :
                                         detail.priority === "MEDIUM" ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
                                 )}>
                                     {detail.priority} PRIORITY
                                 </span>
-                            </div>
-                            <h1 className="text-4xl font-black text-gray-900 tracking-tight italic">
-                                {detail.title}
                             </h1>
                         </div>
                     </div>
@@ -715,14 +709,21 @@ export default function AssignmentDetailPage() {
                             <h3 className="text-lg font-black text-gray-900 leading-none italic uppercase">Brief & Informasi</h3>
 
                             <div className="space-y-4">
+                                <div className="p-6 bg-gray-50 rounded-2xl border border-transparent overflow-hidden">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Judul Konten</p>
+                                    <p className="text-xl font-black text-gray-900 leading-tight uppercase">
+                                        {detail.title}
+                                    </p>
+                                </div>
+
                                 <div className="p-6 bg-gray-50 rounded-2xl border border-transparent min-h-[160px]">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Deskripsi Tugas</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Deskripsi Konten</p>
                                     <p className="text-sm font-bold text-gray-700 leading-relaxed">{detail.description || "Tidak ada deskripsi tambahan."}</p>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div className="p-6 bg-gray-50 rounded-2xl border border-transparent overflow-hidden">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Materi</p>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Format Konten</p>
                                         <p className="text-sm font-black text-gray-900 leading-tight">
                                             {(detail.contentType || "GENERAL").replace(/_/g, " ")}
                                         </p>
